@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import inspect
+import typing
 from typing import Any, Callable
 
 import msgspec
 
 from .background import BackgroundTasks
 from .concurrency import is_coroutine
+from .datastructures import UploadFile
 from .exceptions import HTTPException, RequestValidationError
-from .params import Body, Cookie, Header, Path, Query, _MISSING
+from .params import Body, Cookie, File, Form, Header, Path, Query, _MISSING
 from .request import Request
 
 
@@ -48,10 +50,14 @@ async def _resolve_params(
     bg_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     sig = inspect.signature(func)
+    try:
+        type_hints = typing.get_type_hints(func)
+    except Exception:
+        type_hints = {}
     kwargs: dict[str, Any] = {}
 
     for name, param in sig.parameters.items():
-        annotation = param.annotation
+        annotation = type_hints.get(name, param.annotation)
         default = param.default
 
         # BackgroundTasks injection
@@ -94,6 +100,18 @@ async def _resolve_params(
         # Cookie()
         if isinstance(default, Cookie):
             kwargs[name] = _resolve_cookie(name, request, default)
+            continue
+
+        # File() — UploadFile from multipart form data
+        if isinstance(default, File) or (
+            _is_upload_file_type(annotation) and not isinstance(default, (Path, Query, Header, Cookie, Body, Form))
+        ):
+            kwargs[name] = await _resolve_file(name, request)
+            continue
+
+        # Form() — scalar form field
+        if isinstance(default, Form):
+            kwargs[name] = await _resolve_form_field(name, request, default)
             continue
 
         # Body() explicit marker
@@ -200,6 +218,36 @@ def _resolve_cookie(
     if value is not None:
         return value
     return marker.default
+
+
+async def _resolve_file(name: str, request: Request) -> UploadFile:
+    form_data = await request.form()
+    value = form_data.get(name)
+    if isinstance(value, UploadFile):
+        return value
+    raise RequestValidationError(
+        [{"loc": ["body", name], "msg": "Expected an uploaded file", "type": "value_error.missing"}],
+    )
+
+
+async def _resolve_form_field(
+    name: str, request: Request, marker: Form,
+) -> Any:
+    form_data = await request.form()
+    value = form_data.get(name)
+    if value is not None:
+        return value
+    if marker.default is not _MISSING:
+        return marker.default
+    return None
+
+
+def _is_upload_file_type(annotation: Any) -> bool:
+    return (
+        annotation is not inspect.Parameter.empty
+        and isinstance(annotation, type)
+        and issubclass(annotation, UploadFile)
+    )
 
 
 async def _resolve_body(request: Request, marker: Body) -> Any:
