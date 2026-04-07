@@ -24,7 +24,7 @@ from .response import (
     StreamingResponse,
 )
 from .router import FasterRouter, RadixRouter
-from .websocket import WebSocket, WebSocketDisconnect
+from .websocket import WebSocket, WebSocketDisconnect, WebSocketState
 
 __all__ = [
     "Faster",
@@ -59,4 +59,5 @@ __all__ = [
     "UploadFile",
     "WebSocket",
     "WebSocketDisconnect",
+    "WebSocketState",
 ]
