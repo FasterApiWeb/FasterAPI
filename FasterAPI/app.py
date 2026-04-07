@@ -221,4 +221,9 @@ class Faster:
         prefix: str = "",
         tags: Sequence[str] = (),
     ) -> None:
-        pass
+        prefix = prefix.rstrip("/")
+        for route in router.routes:
+            merged = dict(route)
+            merged["path"] = prefix + merged["path"]
+            merged["tags"] = list(tags) + merged["tags"]
+            self.routes.append(merged)
