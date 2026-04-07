@@ -24,6 +24,7 @@ from .response import (
     StreamingResponse,
 )
 from .router import FasterRouter, RadixRouter
+from .testclient import TestClient
 from .websocket import WebSocket, WebSocketDisconnect, WebSocketState
 
 __all__ = [
@@ -55,6 +56,7 @@ __all__ = [
     "RequestValidationError",
     "Response",
     "StreamingResponse",
+    "TestClient",
     "TrustedHostMiddleware",
     "UploadFile",
     "WebSocket",
