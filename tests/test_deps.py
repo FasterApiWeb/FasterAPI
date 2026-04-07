@@ -52,7 +52,7 @@ class TestRequestInjection:
             return {"method": request.method}
 
         req = _make_request(method="POST")
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"method": "POST"}
 
 
@@ -67,7 +67,7 @@ class TestPathParams:
             return {"user_id": user_id}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {"user_id": "42"})
+        result, _ = await _resolve_handler(handler, req, {"user_id": "42"})
         assert result == {"user_id": "42"}
 
     @pytest.mark.asyncio
@@ -86,7 +86,7 @@ class TestPathParams:
             return {"user_id": user_id}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"user_id": "default_id"}
 
 
@@ -101,7 +101,7 @@ class TestQueryParams:
             return {"q": q}
 
         req = _make_request(query_string=b"q=search")
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"q": "search"}
 
     @pytest.mark.asyncio
@@ -110,7 +110,7 @@ class TestQueryParams:
             return {"q": q}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"q": "default"}
 
     @pytest.mark.asyncio
@@ -119,7 +119,7 @@ class TestQueryParams:
             return {"q": q}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"q": None}
 
     @pytest.mark.asyncio
@@ -128,7 +128,7 @@ class TestQueryParams:
             return {"q": q}
 
         req = _make_request(query_string=b"search_query=hello")
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"q": "hello"}
 
 
@@ -143,7 +143,7 @@ class TestHeaderParams:
             return {"token": x_token}
 
         req = _make_request(headers=[(b"x-token", b"abc123")])
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"token": "abc123"}
 
     @pytest.mark.asyncio
@@ -152,7 +152,7 @@ class TestHeaderParams:
             return {"ct": content_type}
 
         req = _make_request(headers=[(b"content-type", b"text/plain")])
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"ct": "text/plain"}
 
     @pytest.mark.asyncio
@@ -161,7 +161,7 @@ class TestHeaderParams:
             return {"token": token}
 
         req = _make_request(headers=[(b"authorization", b"Bearer xyz")])
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"token": "Bearer xyz"}
 
     @pytest.mark.asyncio
@@ -170,7 +170,7 @@ class TestHeaderParams:
             return {"token": x_token}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"token": "fallback"}
 
 
@@ -185,7 +185,7 @@ class TestCookieParams:
             return {"session": session}
 
         req = _make_request(headers=[(b"cookie", b"session=abc123")])
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"session": "abc123"}
 
     @pytest.mark.asyncio
@@ -194,7 +194,7 @@ class TestCookieParams:
             return {"session": session}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"session": "none"}
 
 
@@ -215,7 +215,7 @@ class TestBodyParams:
 
         body = msgspec.json.encode({"name": "Widget", "price": 9.99})
         req = _make_request(method="POST", body=body)
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"name": "Widget", "price": 9.99}
 
     @pytest.mark.asyncio
@@ -235,7 +235,7 @@ class TestBodyParams:
 
         body = msgspec.json.encode({"key": "value"})
         req = _make_request(method="POST", body=body)
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"key": "value"}
 
     @pytest.mark.asyncio
@@ -244,7 +244,7 @@ class TestBodyParams:
             return data
 
         req = _make_request(method="POST", body=b"not json")
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"fallback": True}
 
 
@@ -262,7 +262,7 @@ class TestDepends:
             return db
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"db": "connected"}
 
     @pytest.mark.asyncio
@@ -274,7 +274,7 @@ class TestDepends:
             return user
 
         req = _make_request(headers=[(b"x-user", b"alice")])
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"user": "alice"}
 
     @pytest.mark.asyncio
@@ -289,7 +289,7 @@ class TestDepends:
             return db
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"db": "ok", "env": "test"}
 
     @pytest.mark.asyncio
@@ -311,7 +311,7 @@ class TestDepends:
             return {"a": a, "b": b}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         # expensive() should only be called once due to caching
         assert result["a"] == 1
         assert result["b"] == 1
@@ -333,7 +333,7 @@ class TestDepends:
             return {"a": a, "b": b}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result["a"] == 1
         assert result["b"] == 2
         assert call_count == 2
@@ -347,7 +347,7 @@ class TestDepends:
             return {"version": version}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"version": "1.0"}
 
 
@@ -362,7 +362,7 @@ class TestSyncHandlers:
             return {"q": q}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {})
+        result, _ = await _resolve_handler(handler, req, {})
         assert result == {"q": "hi"}
 
 
@@ -384,7 +384,7 @@ class TestCombinedParams:
             query_string=b"q=search",
             headers=[(b"x-token", b"secret")],
         )
-        result = await _resolve_handler(handler, req, {"user_id": "7"})
+        result, _ = await _resolve_handler(handler, req, {"user_id": "7"})
         assert result == {"user_id": "7", "q": "search", "token": "secret"}
 
     @pytest.mark.asyncio
@@ -393,5 +393,5 @@ class TestCombinedParams:
             return {"id": id}
 
         req = _make_request()
-        result = await _resolve_handler(handler, req, {"id": "99"})
+        result, _ = await _resolve_handler(handler, req, {"id": "99"})
         assert result == {"id": "99"}

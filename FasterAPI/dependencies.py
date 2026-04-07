@@ -5,6 +5,7 @@ from typing import Any, Callable
 
 import msgspec
 
+from .background import BackgroundTasks
 from .concurrency import is_coroutine
 from .exceptions import HTTPException, RequestValidationError
 from .params import Body, Cookie, Header, Path, Query, _MISSING
@@ -26,13 +27,17 @@ async def _resolve_handler(
     handler: Callable,
     request: Request,
     path_params: dict[str, str],
-) -> Any:
+) -> tuple[Any, BackgroundTasks | None]:
     cache: dict[Callable, Any] = {}
-    kwargs = await _resolve_params(handler, request, path_params, cache)
+    bg_tasks = BackgroundTasks()
+    kwargs = await _resolve_params(handler, request, path_params, cache, bg_tasks)
 
     if is_coroutine(handler):
-        return await handler(**kwargs)
-    return handler(**kwargs)
+        result = await handler(**kwargs)
+    else:
+        result = handler(**kwargs)
+
+    return result, bg_tasks if bg_tasks._tasks else None
 
 
 async def _resolve_params(
@@ -40,6 +45,7 @@ async def _resolve_params(
     request: Request,
     path_params: dict[str, str],
     cache: dict[Callable, Any],
+    bg_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     sig = inspect.signature(func)
     kwargs: dict[str, Any] = {}
@@ -47,6 +53,11 @@ async def _resolve_params(
     for name, param in sig.parameters.items():
         annotation = param.annotation
         default = param.default
+
+        # BackgroundTasks injection
+        if annotation is BackgroundTasks:
+            kwargs[name] = bg_tasks
+            continue
 
         # Request injection
         if annotation is Request:
@@ -56,7 +67,7 @@ async def _resolve_params(
         # Depends() — recursive dependency resolution
         if isinstance(default, Depends):
             kwargs[name] = await _resolve_dependency(
-                default, request, path_params, cache,
+                default, request, path_params, cache, bg_tasks,
             )
             continue
 
@@ -104,13 +115,14 @@ async def _resolve_dependency(
     request: Request,
     path_params: dict[str, str],
     cache: dict[Callable, Any],
+    bg_tasks: BackgroundTasks,
 ) -> Any:
     func = dep.dependency
 
     if dep.use_cache and func in cache:
         return cache[func]
 
-    dep_kwargs = await _resolve_params(func, request, path_params, cache)
+    dep_kwargs = await _resolve_params(func, request, path_params, cache, bg_tasks)
 
     if is_coroutine(func):
         result = await func(**dep_kwargs)

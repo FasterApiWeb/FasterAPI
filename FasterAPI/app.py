@@ -167,8 +167,9 @@ class Faster:
         scope["path_params"] = path_params
 
         request = Request(scope, receive)
+        bg_tasks = None
         try:
-            response = await _resolve_handler(handler, request, path_params)
+            response, bg_tasks = await _resolve_handler(handler, request, path_params)
         except RequestValidationError as exc:
             status, body, headers = await self._handle_exc(
                 request, exc, RequestValidationError,
@@ -196,6 +197,9 @@ class Faster:
 
         status_code = metadata.get("status_code", 200)
         await self._send_response(send, status_code, response)
+
+        if bg_tasks is not None:
+            await bg_tasks.run()
 
     async def _handle_exc(
         self,
