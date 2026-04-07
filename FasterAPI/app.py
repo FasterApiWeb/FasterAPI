@@ -3,7 +3,13 @@ from __future__ import annotations
 import asyncio
 from typing import Any, Callable, Sequence
 
+import msgspec.json
 import uvloop
+
+from .dependencies import _resolve_handler
+from .exceptions import HTTPException
+from .request import Request
+from .router import RadixRouter
 
 uvloop.install()
 
@@ -15,6 +21,7 @@ class Faster:
         self.shutdown_handlers: list[Callable] = []
         self.middleware: list[dict[str, Any]] = []
         self.exception_handlers: dict[type, Callable] = {}
+        self._router = RadixRouter()
 
     def __repr__(self) -> str:
         return f"<Faster routes={len(self.routes)}>"
@@ -56,16 +63,79 @@ class Faster:
                 return
 
     async def _handle_http(self, scope: dict, receive: Callable, send: Callable) -> None:
-        # Routing logic will be implemented later
+        method = scope["method"]
+        path = scope["path"]
+
+        result = self._router.resolve(method, path)
+        if result is None:
+            await self._send_error(send, 404, "Not Found")
+            return
+
+        handler, path_params, metadata = result
+        scope["path_params"] = path_params
+
+        request = Request(scope, receive)
+        try:
+            response = await _resolve_handler(handler, request, path_params)
+        except HTTPException as exc:
+            body = msgspec.json.encode({"detail": exc.detail})
+            headers = [(b"content-type", b"application/json")]
+            if exc.headers:
+                headers.extend(
+                    (k.encode(), v.encode()) for k, v in exc.headers.items()
+                )
+            await send({
+                "type": "http.response.start",
+                "status": exc.status_code,
+                "headers": headers,
+            })
+            await send({"type": "http.response.body", "body": body})
+            return
+        except Exception as exc:
+            for exc_class in type(exc).__mro__:
+                if exc_class in self.exception_handlers:
+                    response = self.exception_handlers[exc_class](request, exc)
+                    if asyncio.iscoroutine(response):
+                        response = await response
+                    break
+            else:
+                await self._send_error(send, 500, "Internal Server Error")
+                return
+
+        status_code = metadata.get("status_code", 200)
+        await self._send_response(send, status_code, response)
+
+    async def _send_response(
+        self, send: Callable, status_code: int, body: Any,
+    ) -> None:
+        if isinstance(body, bytes):
+            content = body
+            ct = b"application/octet-stream"
+        elif isinstance(body, str):
+            content = body.encode()
+            ct = b"text/plain; charset=utf-8"
+        elif body is None:
+            content = b""
+            ct = b"text/plain"
+        else:
+            content = msgspec.json.encode(body)
+            ct = b"application/json"
         await send({
             "type": "http.response.start",
-            "status": 404,
-            "headers": [(b"content-type", b"text/plain")],
+            "status": status_code,
+            "headers": [(b"content-type", ct)],
         })
+        await send({"type": "http.response.body", "body": content})
+
+    @staticmethod
+    async def _send_error(send: Callable, status: int, message: str) -> None:
+        body = msgspec.json.encode({"detail": message})
         await send({
-            "type": "http.response.body",
-            "body": b"Not Found",
+            "type": "http.response.start",
+            "status": status,
+            "headers": [(b"content-type", b"application/json")],
         })
+        await send({"type": "http.response.body", "body": body})
 
     # --- Route decorators ---
 
@@ -81,16 +151,20 @@ class Faster:
         status_code: int,
         deprecated: bool,
     ) -> None:
-        self.routes.append({
-            "method": method,
-            "path": path,
-            "handler": handler,
+        metadata = {
             "tags": tags,
             "summary": summary,
             "response_model": response_model,
             "status_code": status_code,
             "deprecated": deprecated,
+        }
+        self.routes.append({
+            "method": method,
+            "path": path,
+            "handler": handler,
+            **metadata,
         })
+        self._router.add_route(method, path, handler, metadata)
 
     def get(
         self,
@@ -227,3 +301,10 @@ class Faster:
             merged["path"] = prefix + merged["path"]
             merged["tags"] = list(tags) + merged["tags"]
             self.routes.append(merged)
+            metadata = {
+                k: v for k, v in merged.items()
+                if k not in ("method", "path", "handler")
+            }
+            self._router.add_route(
+                merged["method"], merged["path"], merged["handler"], metadata,
+            )
