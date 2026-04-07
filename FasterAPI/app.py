@@ -13,24 +13,90 @@ from .exceptions import (
     _default_http_exception_handler,
     _default_validation_exception_handler,
 )
+from .openapi.generator import generate_openapi
+from .openapi.ui import redoc_html, swagger_ui_html
 from .request import Request
-from .response import Response
+from .response import HTMLResponse, JSONResponse, Response
 from .router import RadixRouter
 
 uvloop.install()
 
 
 class Faster:
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        title: str = "FasterAPI",
+        version: str = "0.1.0",
+        description: str = "",
+        openapi_url: str | None = "/openapi.json",
+        docs_url: str | None = "/docs",
+        redoc_url: str | None = "/redoc",
+    ) -> None:
+        self.title = title
+        self.version = version
+        self.description = description
+        self.openapi_url = openapi_url
+        self.docs_url = docs_url
+        self.redoc_url = redoc_url
         self.routes: list[dict[str, Any]] = []
         self.startup_handlers: list[Callable] = []
         self.shutdown_handlers: list[Callable] = []
         self.middleware: list[dict[str, Any]] = []
         self.exception_handlers: dict[type, Callable] = {}
         self._router = RadixRouter()
+        self._openapi_cache: dict[str, Any] | None = None
+        self._setup_openapi_routes()
 
     def __repr__(self) -> str:
         return f"<Faster routes={len(self.routes)}>"
+
+    def _setup_openapi_routes(self) -> None:
+        if self.openapi_url is not None:
+            openapi_url = self.openapi_url
+
+            async def openapi_schema() -> JSONResponse:
+                spec = generate_openapi(
+                    self,
+                    title=self.title,
+                    version=self.version,
+                    description=self.description,
+                )
+                return JSONResponse(spec)
+
+            self._add_route(
+                "GET", openapi_url, openapi_schema,
+                tags=["openapi"], summary="OpenAPI Schema",
+                response_model=None, status_code=200, deprecated=False,
+            )
+
+        if self.docs_url is not None and self.openapi_url is not None:
+            docs_url = self.docs_url
+            api_url = self.openapi_url
+            title = self.title
+
+            async def swagger_docs() -> HTMLResponse:
+                return HTMLResponse(swagger_ui_html(api_url, title=f"{title} - Swagger UI"))
+
+            self._add_route(
+                "GET", docs_url, swagger_docs,
+                tags=["openapi"], summary="Swagger UI",
+                response_model=None, status_code=200, deprecated=False,
+            )
+
+        if self.redoc_url is not None and self.openapi_url is not None:
+            redoc_url_path = self.redoc_url
+            api_url = self.openapi_url
+            title = self.title
+
+            async def redoc_docs() -> HTMLResponse:
+                return HTMLResponse(redoc_html(api_url, title=f"{title} - ReDoc"))
+
+            self._add_route(
+                "GET", redoc_url_path, redoc_docs,
+                tags=["openapi"], summary="ReDoc",
+                response_model=None, status_code=200, deprecated=False,
+            )
 
     # --- ASGI interface ---
 
