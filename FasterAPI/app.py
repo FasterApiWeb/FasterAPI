@@ -46,6 +46,7 @@ class Faster:
         self.exception_handlers: dict[type, Callable] = {}
         self._router = RadixRouter()
         self._openapi_cache: dict[str, Any] | None = None
+        self._middleware_app: Callable | None = None
         self._setup_openapi_routes()
 
     def __repr__(self) -> str:
@@ -100,15 +101,30 @@ class Faster:
 
     # --- ASGI interface ---
 
-    async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
-        scope_type = scope["type"]
+    def _build_middleware_chain(self) -> Callable:
+        app = self._asgi_app
+        for entry in reversed(self.middleware):
+            cls = entry["class"]
+            kwargs = entry["kwargs"]
+            app = cls(app, **kwargs)
+        return app
 
+    async def _asgi_app(self, scope: dict, receive: Callable, send: Callable) -> None:
+        scope_type = scope["type"]
         if scope_type == "lifespan":
             await self._handle_lifespan(scope, receive, send)
         elif scope_type == "http":
             await self._handle_http(scope, receive, send)
         else:
             raise RuntimeError(f"Unsupported scope type: {scope_type}")
+
+    async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
+        if self.middleware:
+            if self._middleware_app is None:
+                self._middleware_app = self._build_middleware_chain()
+            await self._middleware_app(scope, receive, send)
+        else:
+            await self._asgi_app(scope, receive, send)
 
     async def _handle_lifespan(self, scope: dict, receive: Callable, send: Callable) -> None:
         while True:
