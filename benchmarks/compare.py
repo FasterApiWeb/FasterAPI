@@ -1,57 +1,267 @@
-"""Benchmark: FasterAPI vs FastAPI routing performance.
+"""Benchmark: FasterAPI vs FastAPI — identical endpoints, head-to-head comparison.
 
-Run: python benchmarks/compare.py
+Starts both frameworks on separate ports, fires concurrent requests with
+httpx.AsyncClient, and prints a comparison table with req/s, latency
+percentiles, and error rate.
 
-Measures route registration and resolution throughput using the
-radix-tree router. Does not require a running server.
+Usage:
+    python benchmarks/compare.py
+    python benchmarks/compare.py --requests 5000 --concurrency 50
 """
 
+import argparse
+import asyncio
+import multiprocessing
+import socket
 import time
+from typing import Any, Optional
 
-from FasterAPI.router import RadixRouter
-
-
-def bench_registration(n: int = 10_000) -> float:
-    router = RadixRouter()
-    start = time.perf_counter()
-    for i in range(n):
-        router.add_route("GET", f"/api/v1/resource{i}", lambda: None)
-    elapsed = time.perf_counter() - start
-    return elapsed
+import httpx
 
 
-def bench_resolution_static(n: int = 100_000) -> float:
-    router = RadixRouter()
-    for i in range(100):
-        router.add_route("GET", f"/api/v1/resource{i}", lambda: None)
+# ───────────────────────────────────────────────
+#  App factories (each runs in its own process)
+# ───────────────────────────────────────────────
 
-    start = time.perf_counter()
-    for _ in range(n):
-        router.resolve("GET", "/api/v1/resource50")
-    elapsed = time.perf_counter() - start
-    return elapsed
+def _find_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
 
 
-def bench_resolution_param(n: int = 100_000) -> float:
-    router = RadixRouter()
-    router.add_route("GET", "/users/{user_id}/posts/{post_id}", lambda: None)
+def _run_fasterapi(port: int, ready: multiprocessing.Event) -> None:
+    """Launch a FasterAPI (Faster) server in this process."""
+    import uvicorn
+    import msgspec
 
-    start = time.perf_counter()
-    for _ in range(n):
-        router.resolve("GET", "/users/42/posts/99")
-    elapsed = time.perf_counter() - start
-    return elapsed
+    from FasterAPI.app import Faster
+
+    class User(msgspec.Struct):
+        name: str
+        email: str
+
+    app = Faster(openapi_url=None, docs_url=None, redoc_url=None)
+
+    @app.get("/health")
+    async def health():
+        return {"status": "ok"}
+
+    @app.get("/users/{user_id}")
+    async def get_user(user_id: str):
+        return {"id": user_id, "name": "test"}
+
+    @app.post("/users")
+    async def create_user(user: User):
+        return {"name": user.name, "email": user.email}
+
+    ready.set()
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="error")
+
+
+def _run_fastapi(port: int, ready: multiprocessing.Event) -> None:
+    """Launch a FastAPI server in this process."""
+    import uvicorn
+    from fastapi import FastAPI
+    from pydantic import BaseModel
+
+    class User(BaseModel):
+        name: str
+        email: str
+
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+    @app.get("/health")
+    async def health():
+        return {"status": "ok"}
+
+    @app.get("/users/{user_id}")
+    async def get_user(user_id: str):
+        return {"id": user_id, "name": "test"}
+
+    @app.post("/users")
+    async def create_user(user: User):
+        return {"name": user.name, "email": user.email}
+
+    ready.set()
+    uvicorn.run(app, host="127.0.0.1", port=port, log_level="error")
+
+
+# ───────────────────────────────────────────────
+#  Benchmark runner
+# ───────────────────────────────────────────────
+
+async def _wait_for_server(url: str, timeout: float = 10.0) -> None:
+    """Poll until the server responds or timeout."""
+    deadline = time.monotonic() + timeout
+    async with httpx.AsyncClient() as client:
+        while time.monotonic() < deadline:
+            try:
+                resp = await client.get(url)
+                if resp.status_code == 200:
+                    return
+            except httpx.ConnectError:
+                pass
+            await asyncio.sleep(0.1)
+    raise TimeoutError(f"Server at {url} did not start in {timeout}s")
+
+
+async def _benchmark_endpoint(
+    client: httpx.AsyncClient,
+    method: str,
+    path: str,
+    total: int,
+    concurrency: int,
+    json_body: Optional[dict] = None,
+) -> dict[str, Any]:
+    """Fire `total` requests at `concurrency` level, return stats."""
+    latencies: list[float] = []
+    errors = 0
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def _fire() -> None:
+        nonlocal errors
+        async with semaphore:
+            start = time.perf_counter()
+            try:
+                if method == "GET":
+                    resp = await client.get(path)
+                else:
+                    resp = await client.post(path, json=json_body)
+                if resp.status_code >= 400:
+                    errors += 1
+            except Exception:
+                errors += 1
+                return
+            elapsed = time.perf_counter() - start
+            latencies.append(elapsed)
+
+    wall_start = time.perf_counter()
+    await asyncio.gather(*[_fire() for _ in range(total)])
+    wall_elapsed = time.perf_counter() - wall_start
+
+    if not latencies:
+        return {"rps": 0, "p50": 0, "p95": 0, "p99": 0, "errors": errors, "wall": wall_elapsed}
+
+    latencies.sort()
+    n = len(latencies)
+    return {
+        "rps": total / wall_elapsed,
+        "p50": latencies[int(n * 0.50)] * 1000,
+        "p95": latencies[int(n * 0.95)] * 1000,
+        "p99": latencies[int(n * 0.99)] * 1000,
+        "errors": errors,
+        "wall": wall_elapsed,
+    }
+
+
+async def _run_all_benchmarks(
+    base_url: str,
+    total: int,
+    concurrency: int,
+) -> dict[str, dict[str, Any]]:
+    """Run all benchmarks against one server, return results dict."""
+    body = {"name": "Alice", "email": "alice@test.com"}
+    results = {}
+
+    async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
+        # Warmup
+        await _benchmark_endpoint(client, "GET", "/health", min(200, total), min(20, concurrency))
+        await _benchmark_endpoint(client, "GET", "/users/1", min(200, total), min(20, concurrency))
+        await _benchmark_endpoint(client, "POST", "/users", min(200, total), min(20, concurrency), body)
+
+        # Actual benchmarks
+        results["health"] = await _benchmark_endpoint(client, "GET", "/health", total, concurrency)
+        results["users_get"] = await _benchmark_endpoint(client, "GET", "/users/42", total, concurrency)
+        results["users_post"] = await _benchmark_endpoint(client, "POST", "/users", total, concurrency, body)
+
+    return results
+
+
+# ───────────────────────────────────────────────
+#  Comparison table
+# ───────────────────────────────────────────────
+
+def _print_header(total: int, concurrency: int) -> None:
+    print()
+    print("=" * 78)
+    print(f"  FasterAPI vs FastAPI — {total:,} requests, {concurrency} concurrent")
+    print("=" * 78)
+
+
+def _print_table(label: str, faster: dict, fastapi: dict) -> None:
+    speedup = faster["rps"] / fastapi["rps"] if fastapi["rps"] > 0 else float("inf")
+    print(f"\n  {label}")
+    print(f"  {'─' * 72}")
+    print(f"  {'Metric':<20} {'FasterAPI':>14} {'FastAPI':>14} {'Speedup':>12}")
+    print(f"  {'─' * 72}")
+    print(f"  {'Req/s':<20} {faster['rps']:>14,.0f} {fastapi['rps']:>14,.0f} {speedup:>11.2f}x")
+    print(f"  {'p50 latency (ms)':<20} {faster['p50']:>14.2f} {fastapi['p50']:>14.2f}")
+    print(f"  {'p95 latency (ms)':<20} {faster['p95']:>14.2f} {fastapi['p95']:>14.2f}")
+    print(f"  {'p99 latency (ms)':<20} {faster['p99']:>14.2f} {fastapi['p99']:>14.2f}")
+    print(f"  {'Errors':<20} {faster['errors']:>14} {fastapi['errors']:>14}")
+
+
+# ───────────────────────────────────────────────
+#  Main
+# ───────────────────────────────────────────────
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="FasterAPI vs FastAPI benchmark")
+    parser.add_argument("--requests", type=int, default=10_000, help="Total requests per endpoint (default: 10000)")
+    parser.add_argument("--concurrency", type=int, default=100, help="Concurrent requests (default: 100)")
+    args = parser.parse_args()
+
+    total = args.requests
+    concurrency = args.concurrency
+
+    port_faster = _find_free_port()
+    port_fastapi = _find_free_port()
+
+    ready_faster = multiprocessing.Event()
+    ready_fastapi = multiprocessing.Event()
+
+    proc_faster = multiprocessing.Process(
+        target=_run_fasterapi, args=(port_faster, ready_faster), daemon=True,
+    )
+    proc_fastapi = multiprocessing.Process(
+        target=_run_fastapi, args=(port_fastapi, ready_fastapi), daemon=True,
+    )
+
+    proc_faster.start()
+    proc_fastapi.start()
+
+    try:
+        ready_faster.wait(timeout=10)
+        ready_fastapi.wait(timeout=10)
+
+        base_faster = f"http://127.0.0.1:{port_faster}"
+        base_fastapi = f"http://127.0.0.1:{port_fastapi}"
+
+        asyncio.run(_wait_for_server(f"{base_faster}/health"))
+        asyncio.run(_wait_for_server(f"{base_fastapi}/health"))
+
+        _print_header(total, concurrency)
+
+        print("\n  Running FasterAPI benchmarks...", flush=True)
+        faster_results = asyncio.run(_run_all_benchmarks(base_faster, total, concurrency))
+
+        print("  Running FastAPI benchmarks...", flush=True)
+        fastapi_results = asyncio.run(_run_all_benchmarks(base_fastapi, total, concurrency))
+
+        _print_table("GET /health — simple JSON response", faster_results["health"], fastapi_results["health"])
+        _print_table("GET /users/{id} — path parameter extraction", faster_results["users_get"], fastapi_results["users_get"])
+        _print_table("POST /users — JSON body parsing & validation", faster_results["users_post"], fastapi_results["users_post"])
+
+        print()
+        print("=" * 78)
+        print()
+
+    finally:
+        proc_faster.terminate()
+        proc_fastapi.terminate()
+        proc_faster.join(timeout=3)
+        proc_fastapi.join(timeout=3)
 
 
 if __name__ == "__main__":
-    print("FasterAPI Router Benchmark")
-    print("=" * 40)
-
-    t = bench_registration()
-    print(f"Register 10k routes:   {t*1000:.1f}ms")
-
-    t = bench_resolution_static()
-    print(f"Resolve static 100k:   {t*1000:.1f}ms ({100_000/t:.0f} ops/s)")
-
-    t = bench_resolution_param()
-    print(f"Resolve param 100k:    {t*1000:.1f}ms ({100_000/t:.0f} ops/s)")
+    main()
