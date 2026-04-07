@@ -6,7 +6,7 @@ from typing import Any, Callable
 import msgspec
 
 from .concurrency import is_coroutine
-from .exceptions import HTTPException
+from .exceptions import HTTPException, RequestValidationError
 from .params import Body, Cookie, Header, Path, Query, _MISSING
 from .request import Request
 
@@ -139,9 +139,8 @@ async def _resolve_struct(
     except (msgspec.DecodeError, msgspec.ValidationError) as exc:
         if default is not inspect.Parameter.empty:
             return default
-        raise HTTPException(
-            status_code=422,
-            detail=[{"loc": ["body"], "msg": str(exc)}],
+        raise RequestValidationError(
+            [{"loc": ["body"], "msg": str(exc), "type": "value_error.msgspec"}],
         ) from exc
 
 
@@ -152,9 +151,8 @@ def _resolve_path(
         return path_params[name]
     if marker.default is not _MISSING:
         return marker.default
-    raise HTTPException(
-        status_code=422,
-        detail=[{"loc": ["path", name], "msg": "Missing required path parameter"}],
+    raise RequestValidationError(
+        [{"loc": ["path", name], "msg": "Missing required path parameter", "type": "value_error.missing"}],
     )
 
 
@@ -198,7 +196,6 @@ async def _resolve_body(request: Request, marker: Body) -> Any:
     except Exception as exc:
         if marker.default is not _MISSING:
             return marker.default
-        raise HTTPException(
-            status_code=422,
-            detail=[{"loc": ["body"], "msg": str(exc)}],
+        raise RequestValidationError(
+            [{"loc": ["body"], "msg": str(exc), "type": "value_error.missing"}],
         ) from exc

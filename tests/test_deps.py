@@ -4,7 +4,7 @@ import msgspec
 import pytest
 
 from FasterAPI.dependencies import Depends, _resolve_handler
-from FasterAPI.exceptions import HTTPException
+from FasterAPI.exceptions import HTTPException, RequestValidationError
 from FasterAPI.params import Body, Cookie, Header, Path, Query
 from FasterAPI.request import Request
 
@@ -71,14 +71,14 @@ class TestPathParams:
         assert result == {"user_id": "42"}
 
     @pytest.mark.asyncio
-    async def test_path_param_missing_raises_422(self):
+    async def test_path_param_missing_raises_validation_error(self):
         async def handler(user_id: str = Path()):
             return user_id
 
         req = _make_request()
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(RequestValidationError) as exc_info:
             await _resolve_handler(handler, req, {})
-        assert exc_info.value.status_code == 422
+        assert exc_info.value.errors[0]["loc"] == ["path", "user_id"]
 
     @pytest.mark.asyncio
     async def test_path_param_with_default(self):
@@ -219,14 +219,14 @@ class TestBodyParams:
         assert result == {"name": "Widget", "price": 9.99}
 
     @pytest.mark.asyncio
-    async def test_struct_invalid_raises_422(self):
+    async def test_struct_invalid_raises_validation_error(self):
         async def handler(item: Item):
             return item
 
         req = _make_request(method="POST", body=b'{"name": "X"}')
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(RequestValidationError) as exc_info:
             await _resolve_handler(handler, req, {})
-        assert exc_info.value.status_code == 422
+        assert exc_info.value.errors[0]["loc"] == ["body"]
 
     @pytest.mark.asyncio
     async def test_body_marker(self):

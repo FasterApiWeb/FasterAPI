@@ -7,8 +7,14 @@ import msgspec.json
 import uvloop
 
 from .dependencies import _resolve_handler
-from .exceptions import HTTPException
+from .exceptions import (
+    HTTPException,
+    RequestValidationError,
+    _default_http_exception_handler,
+    _default_validation_exception_handler,
+)
 from .request import Request
+from .response import Response
 from .router import RadixRouter
 
 uvloop.install()
@@ -77,19 +83,19 @@ class Faster:
         request = Request(scope, receive)
         try:
             response = await _resolve_handler(handler, request, path_params)
+        except RequestValidationError as exc:
+            status, body, headers = await self._handle_exc(
+                request, exc, RequestValidationError,
+                _default_validation_exception_handler,
+            )
+            await self._send_raw(send, status, body, headers)
+            return
         except HTTPException as exc:
-            body = msgspec.json.encode({"detail": exc.detail})
-            headers = [(b"content-type", b"application/json")]
-            if exc.headers:
-                headers.extend(
-                    (k.encode(), v.encode()) for k, v in exc.headers.items()
-                )
-            await send({
-                "type": "http.response.start",
-                "status": exc.status_code,
-                "headers": headers,
-            })
-            await send({"type": "http.response.body", "body": body})
+            status, body, headers = await self._handle_exc(
+                request, exc, HTTPException,
+                _default_http_exception_handler,
+            )
+            await self._send_raw(send, status, body, headers)
             return
         except Exception as exc:
             for exc_class in type(exc).__mro__:
@@ -105,9 +111,27 @@ class Faster:
         status_code = metadata.get("status_code", 200)
         await self._send_response(send, status_code, response)
 
+    async def _handle_exc(
+        self,
+        request: Request,
+        exc: Exception,
+        exc_class: type,
+        default_handler: Callable,
+    ) -> tuple[int, bytes, list[tuple[bytes, bytes]]]:
+        handler = self.exception_handlers.get(exc_class, default_handler)
+        result = handler(request, exc)
+        if asyncio.iscoroutine(result):
+            result = await result
+        return result
+
     async def _send_response(
         self, send: Callable, status_code: int, body: Any,
     ) -> None:
+        # If handler returned a Response object, use its to_asgi directly
+        if hasattr(body, "to_asgi"):
+            await body.to_asgi(send)
+            return
+
         if isinstance(body, bytes):
             content = body
             ct = b"application/octet-stream"
@@ -126,6 +150,20 @@ class Faster:
             "headers": [(b"content-type", ct)],
         })
         await send({"type": "http.response.body", "body": content})
+
+    @staticmethod
+    async def _send_raw(
+        send: Callable,
+        status: int,
+        body: bytes,
+        headers: list[tuple[bytes, bytes]],
+    ) -> None:
+        await send({
+            "type": "http.response.start",
+            "status": status,
+            "headers": headers,
+        })
+        await send({"type": "http.response.body", "body": body})
 
     @staticmethod
     async def _send_error(send: Callable, status: int, message: str) -> None:
