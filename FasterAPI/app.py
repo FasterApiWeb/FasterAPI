@@ -18,6 +18,7 @@ from .openapi.ui import redoc_html, swagger_ui_html
 from .request import Request
 from .response import HTMLResponse, JSONResponse, Response
 from .router import RadixRouter
+from .websocket import WebSocket
 
 uvloop.install()
 
@@ -47,6 +48,7 @@ class Faster:
         self._router = RadixRouter()
         self._openapi_cache: dict[str, Any] | None = None
         self._middleware_app: Callable | None = None
+        self._ws_routes: dict[str, Callable] = {}
         self._setup_openapi_routes()
 
     def __repr__(self) -> str:
@@ -115,6 +117,8 @@ class Faster:
             await self._handle_lifespan(scope, receive, send)
         elif scope_type == "http":
             await self._handle_http(scope, receive, send)
+        elif scope_type == "websocket":
+            await self._handle_websocket(scope, receive, send)
         else:
             raise RuntimeError(f"Unsupported scope type: {scope_type}")
 
@@ -257,6 +261,17 @@ class Faster:
         })
         await send({"type": "http.response.body", "body": body})
 
+    async def _handle_websocket(
+        self, scope: dict, receive: Callable, send: Callable,
+    ) -> None:
+        path = scope.get("path", "/")
+        handler = self._ws_routes.get(path.rstrip("/") or "/")
+        if handler is None:
+            await send({"type": "websocket.close", "code": 4004})
+            return
+        ws = WebSocket(scope, receive, send)
+        await handler(ws)
+
     # --- Route decorators ---
 
     def _add_route(
@@ -383,6 +398,14 @@ class Faster:
                 response_model=response_model, status_code=status_code,
                 deprecated=deprecated,
             )
+            return handler
+        return decorator
+
+    # --- WebSocket decorator ---
+
+    def websocket(self, path: str) -> Callable:
+        def decorator(handler: Callable) -> Callable:
+            self._ws_routes[path.rstrip("/") or "/"] = handler
             return handler
         return decorator
 
