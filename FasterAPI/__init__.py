@@ -1,5 +1,6 @@
 """FasterAPI — A high-performance ASGI web framework."""
 
+from . import status
 from .app import Faster
 from .background import BackgroundTask, BackgroundTasks
 from .datastructures import FormData, UploadFile
@@ -28,7 +29,6 @@ from .testclient import TestClient
 from .websocket import WebSocket, WebSocketDisconnect, WebSocketState
 
 __all__ = [
-    "Faster",
     "BackgroundTask",
     "BackgroundTasks",
     "BaseHTTPMiddleware",
@@ -36,6 +36,7 @@ __all__ = [
     "CORSMiddleware",
     "Cookie",
     "Depends",
+    "Faster",
     "FasterRouter",
     "File",
     "FileResponse",
@@ -62,4 +63,5 @@ __all__ = [
     "WebSocket",
     "WebSocketDisconnect",
     "WebSocketState",
+    "status",
 ]
