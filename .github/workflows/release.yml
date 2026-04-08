@@ -11,21 +11,39 @@ permissions:
   packages: write
 
 jobs:
-  # ── Step 1: Run tests before releasing ──────────────────────────────
+  # ── Gate: only release from master ──────────────────────────────────
+  check-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify tag is on master
+        run: |
+          TAG_COMMIT=$(git rev-list -n 1 "$GITHUB_REF")
+          if ! git branch -r --contains "$TAG_COMMIT" | grep -q 'origin/master'; then
+            echo "::error::Tag $GITHUB_REF_NAME is not on the master branch. Releases must be tagged on master."
+            exit 1
+          fi
+
+  # ── Step 1: Run tests ──────────────────────────────────────────────
   test:
+    needs: check-branch
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: pytest
+      - run: pytest --cov=FasterAPI --cov-report=term-missing
 
-  # ── Step 2: Build wheel + sdist ─────────────────────────────────────
+  # ── Step 2: Build wheel + sdist ────────────────────────────────────
   build:
     needs: test
     runs-on: ubuntu-latest
@@ -95,7 +113,7 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/fasterapi:${{ steps.version.outputs.tag }}
             ghcr.io/${{ github.repository_owner }}/fasterapi:latest
 
-  # ── Step 5: Create GitHub Release with artifacts ────────────────────
+  # ── Step 5: Create GitHub Release with artifacts ───────────────────
   github-release:
     needs: [build, publish-pypi, publish-docker]
     runs-on: ubuntu-latest
