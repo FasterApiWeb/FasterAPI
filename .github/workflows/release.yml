@@ -7,15 +7,32 @@ on:
 
 permissions:
   contents: write
+  id-token: write   # Required for PyPI trusted publishing (OIDC)
+  packages: write   # Required for GitHub Packages
 
 jobs:
-  build-and-release:
+  # ── Step 1: Run tests before releasing ──────────────────────────────
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - run: pip install -e ".[dev]"
+      - run: pytest
+
+  # ── Step 2: Build wheel + sdist ─────────────────────────────────────
+  build:
+    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.13
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
 
@@ -25,97 +42,116 @@ jobs:
       - name: Build wheel and sdist
         run: python -m build
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  # ── Step 3: Publish to PyPI via trusted publishing (OIDC) ──────────
+  publish-pypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  # ── Step 4: Publish to GitHub Packages ──────────────────────────────
+  publish-ghpackages:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Publish to GitHub Packages
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pip install twine
+          twine upload --repository-url https://ghcr.io/v2/${{ github.repository_owner }} dist/* || true
+
+  # ── Step 5: Create GitHub Release with artifacts ────────────────────
+  github-release:
+    needs: [publish-pypi, publish-ghpackages]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/*
           body: |
-            # FasterAPI v0.1.0
+            # FasterAPI ${{ github.ref_name }}
 
             **A high-performance ASGI web framework — drop-in FastAPI replacement.**
 
-            FasterAPI keeps every feature developers love from FastAPI while replacing the internals with faster components. If you already know FastAPI, you already know FasterAPI.
+            ```bash
+            pip install faster-api
+            ```
 
             ---
 
             ## 5 Key Innovations
 
             ### 1. Radix Tree Router — 7.6x faster routing
-            Regex routers scan every pattern linearly. FasterAPI's radix tree does O(k) lookups (k = path segments) regardless of route count. With 100 routes: **1,104,318 ops/s vs 144,822 ops/s**.
+            O(k) lookups regardless of route count. **1,104,318 ops/s vs 144,822 ops/s** (regex).
 
             ### 2. msgspec (Rust-backed) — 9.4x faster JSON encoding
-            `msgspec.json.encode()` converts dicts to bytes in a single C call — no intermediate string, no Python loops. **6,317,891 ops/s vs 670,234 ops/s** (json.dumps+encode).
+            Dict → bytes in a single C call. **6,317,891 ops/s vs 670,234 ops/s**.
 
             ### 3. Compiled Dependency Injection — zero per-request introspection
-            FastAPI calls `inspect.signature()` and `get_type_hints()` on every request. FasterAPI compiles handler metadata once at startup and reuses it. This alone eliminates ~80% of per-request framework overhead.
+            Handler signatures compiled once at startup. Eliminates ~80% of per-request framework overhead.
 
             ### 4. uvloop — C-powered event loop
-            Replaces stdlib asyncio with libuv (the same engine as Node.js). All I/O scheduling happens in C. On Python 3.12+ uses `EventLoopPolicy` for clean integration.
+            libuv-backed (same engine as Node.js). All I/O scheduling in C.
 
             ### 5. Lazy Request Parsing — only parse what you use
-            Headers, query params, and cookies are parsed on first access, not eagerly in `__init__`. Routes that don't inspect headers (health checks, simple GETs) skip the overhead entirely.
+            Headers, query params, cookies parsed on first access only.
 
             ---
 
-            ## Benchmark Results (Python 3.13.7)
-
-            ### Framework-Level (Direct ASGI, no network overhead)
+            ## Benchmarks (Python 3.13.7)
 
             | Endpoint | FasterAPI | FastAPI | Speedup |
             |---|---|---|---|
             | `GET /health` | **335,612 req/s** | 49,005 req/s | **6.85x** |
             | `GET /users/{id}` | **282,835 req/s** | 32,391 req/s | **8.73x** |
-            | `POST /users` (JSON body) | **193,225 req/s** | 27,031 req/s | **7.15x** |
+            | `POST /users` | **193,225 req/s** | 27,031 req/s | **7.15x** |
 
-            ### Component-Level
-
-            | Component | FasterAPI | Baseline | Speedup |
-            |---|---|---|---|
-            | Routing (100 routes) | 1,104,318 ops/s | 144,822 ops/s (regex) | **7.6x** |
-            | JSON encode | 6,317,891 ops/s | 670,234 ops/s (json.dumps) | **9.4x** |
-            | JSON decode+validate | 3,348,927 ops/s | 909,256 ops/s (Pydantic v2) | **3.7x** |
-
-            [Full benchmark details →](https://github.com/EshwarCVS/FasterAPI#benchmarks)
+            [Full benchmarks →](https://github.com/EshwarCVS/FasterAPI#benchmarks)
 
             ---
 
-            ## Quick Start
-
-            ```python
-            import msgspec
-            from FasterAPI import Faster, Path
-
-            app = Faster()
-
-            class Item(msgspec.Struct):
-                name: str
-                price: float
-
-            @app.get("/items/{item_id}")
-            async def get_item(item_id: str = Path()):
-                return {"item_id": item_id}
-
-            @app.post("/items", status_code=201)
-            async def create_item(item: Item):
-                return {"name": item.name, "price": item.price}
-            ```
+            ## Install
 
             ```bash
-            uvicorn app:app --reload
-            # Swagger UI → http://localhost:8000/docs
+            pip install faster-api        # core
+            pip install faster-api[all]   # + uvloop
             ```
-
-            ---
-
-            ## What's Included
-
-            - Full ASGI framework (no Starlette dependency)
-            - Auto-generated OpenAPI 3.0 docs (Swagger UI + ReDoc)
-            - Dependency injection with `Depends()` (cached, nestable)
-            - Path / Query / Header / Cookie / Body / File / Form params
-            - CORS, GZip, TrustedHost, HTTPS redirect middleware
-            - WebSocket support
-            - Background tasks
-            - Built-in TestClient (httpx-based)
-            - Python 3.13 sub-interpreter support (ProcessPool fallback on 3.10–3.12)
-            - 173 tests passing on Python 3.10, 3.11, 3.12, 3.13
