@@ -36,11 +36,11 @@ class _WebSocketSession:
 
     def receive_text(self) -> str:
         msg = self._drain_one()
-        return msg.get("text", "")
+        return str(msg.get("text", ""))
 
     def receive_bytes(self) -> bytes:
         msg = self._drain_one()
-        return msg.get("bytes", b"")
+        return bytes(msg.get("bytes", b""))
 
     def receive_json(self) -> Any:
         import msgspec.json
@@ -109,25 +109,39 @@ class TestClient:
     # --- HTTP methods ---
 
     def get(self, url: str, **kwargs: Any) -> httpx.Response:
-        return self._run(self._client.get(url, **kwargs))
+        """Send a GET request."""
+        result: httpx.Response = self._run(self._client.get(url, **kwargs))
+        return result
 
     def post(self, url: str, **kwargs: Any) -> httpx.Response:
-        return self._run(self._client.post(url, **kwargs))
+        """Send a POST request."""
+        result: httpx.Response = self._run(self._client.post(url, **kwargs))
+        return result
 
     def put(self, url: str, **kwargs: Any) -> httpx.Response:
-        return self._run(self._client.put(url, **kwargs))
+        """Send a PUT request."""
+        result: httpx.Response = self._run(self._client.put(url, **kwargs))
+        return result
 
     def delete(self, url: str, **kwargs: Any) -> httpx.Response:
-        return self._run(self._client.delete(url, **kwargs))
+        """Send a DELETE request."""
+        result: httpx.Response = self._run(self._client.delete(url, **kwargs))
+        return result
 
     def patch(self, url: str, **kwargs: Any) -> httpx.Response:
-        return self._run(self._client.patch(url, **kwargs))
+        """Send a PATCH request."""
+        result: httpx.Response = self._run(self._client.patch(url, **kwargs))
+        return result
 
     def options(self, url: str, **kwargs: Any) -> httpx.Response:
-        return self._run(self._client.options(url, **kwargs))
+        """Send an OPTIONS request."""
+        result: httpx.Response = self._run(self._client.options(url, **kwargs))
+        return result
 
     def head(self, url: str, **kwargs: Any) -> httpx.Response:
-        return self._run(self._client.head(url, **kwargs))
+        """Send a HEAD request."""
+        result: httpx.Response = self._run(self._client.head(url, **kwargs))
+        return result
 
     # --- WebSocket ---
 

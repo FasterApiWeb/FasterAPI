@@ -9,6 +9,8 @@ import msgspec.json
 
 
 class Response:
+    """Base HTTP response class."""
+
     media_type: str | None = None
     charset: str = "utf-8"
 
@@ -30,7 +32,7 @@ class Response:
             return b""
         if isinstance(content, bytes):
             return content
-        return content.encode(self.charset)
+        return bytes(content.encode(self.charset))
 
     def _build_headers(self) -> list[tuple[bytes, bytes]]:
         raw: list[tuple[bytes, bytes]] = []
@@ -44,6 +46,7 @@ class Response:
         return raw
 
     async def to_asgi(self, send: Callable) -> None:
+        """Send the response through the ASGI interface."""
         await send({
             "type": "http.response.start",
             "status": self.status_code,
@@ -56,6 +59,8 @@ class Response:
 
 
 class JSONResponse(Response):
+    """Response that serializes content as JSON using msgspec."""
+
     media_type = "application/json"
 
     def _render(self, content: Any) -> bytes:
@@ -63,6 +68,8 @@ class JSONResponse(Response):
 
 
 class HTMLResponse(Response):
+    """Response with HTML content type."""
+
     media_type = "text/html"
 
     def __init__(
@@ -75,6 +82,8 @@ class HTMLResponse(Response):
 
 
 class PlainTextResponse(Response):
+    """Response with plain text content type."""
+
     media_type = "text/plain"
 
     def __init__(
@@ -87,6 +96,8 @@ class PlainTextResponse(Response):
 
 
 class RedirectResponse(Response):
+    """Response that redirects to a different URL."""
+
     def __init__(
         self,
         url: str,
@@ -103,6 +114,8 @@ class RedirectResponse(Response):
 
 
 class StreamingResponse:
+    """Response that streams content from an async or sync iterator."""
+
     def __init__(
         self,
         content: AsyncIterator[bytes] | Iterator[bytes],
@@ -124,6 +137,7 @@ class StreamingResponse:
         return raw
 
     async def to_asgi(self, send: Callable) -> None:
+        """Stream the response body through the ASGI interface."""
         await send({
             "type": "http.response.start",
             "status": self.status_code,
@@ -147,6 +161,8 @@ class StreamingResponse:
 
 
 class FileResponse:
+    """Response that sends a file as an attachment."""
+
     def __init__(
         self,
         path: str | Path,
@@ -178,6 +194,7 @@ class FileResponse:
         return raw
 
     async def to_asgi(self, send: Callable) -> None:
+        """Read the file and send it through the ASGI interface."""
         content = await asyncio.get_running_loop().run_in_executor(
             None, self.path.read_bytes,
         )

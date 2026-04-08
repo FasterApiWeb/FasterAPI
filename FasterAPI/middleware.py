@@ -6,6 +6,8 @@ from typing import Any, Callable, Sequence
 
 
 class BaseHTTPMiddleware:
+    """Base class for HTTP middleware that wraps an ASGI application."""
+
     def __init__(self, app: Callable) -> None:
         self.app = app
 
@@ -18,6 +20,7 @@ class BaseHTTPMiddleware:
     async def dispatch(
         self, scope: dict, receive: Callable, send: Callable,
     ) -> None:
+        """Process the request. Override this method in subclasses."""
         async def call_next() -> None:
             await self.app(scope, receive, send)
 
@@ -25,6 +28,8 @@ class BaseHTTPMiddleware:
 
 
 class CORSMiddleware(BaseHTTPMiddleware):
+    """Middleware that handles Cross-Origin Resource Sharing (CORS) headers."""
+
     def __init__(
         self,
         app: Callable,
@@ -50,6 +55,7 @@ class CORSMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, scope: dict, receive: Callable, send: Callable,
     ) -> None:
+        """Handle CORS preflight requests and inject CORS headers into responses."""
         headers_raw: list[tuple[bytes, bytes]] = scope.get("headers", [])
         request_headers = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in headers_raw}
         origin = request_headers.get("origin")
@@ -149,6 +155,8 @@ class CORSMiddleware(BaseHTTPMiddleware):
 
 
 class GZipMiddleware(BaseHTTPMiddleware):
+    """Middleware that compresses responses using gzip when the client supports it."""
+
     def __init__(self, app: Callable, *, minimum_size: int = 1000) -> None:
         super().__init__(app)
         self.minimum_size = minimum_size
@@ -156,6 +164,7 @@ class GZipMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, scope: dict, receive: Callable, send: Callable,
     ) -> None:
+        """Compress the response body with gzip if it exceeds the minimum size."""
         headers_raw: list[tuple[bytes, bytes]] = scope.get("headers", [])
         accept_encoding = ""
         for k, v in headers_raw:
@@ -202,6 +211,8 @@ class GZipMiddleware(BaseHTTPMiddleware):
 
 
 class TrustedHostMiddleware(BaseHTTPMiddleware):
+    """Middleware that validates the Host header against a list of allowed hosts."""
+
     def __init__(
         self, app: Callable, *, allowed_hosts: Sequence[str] = ("*",),
     ) -> None:
@@ -239,6 +250,8 @@ class TrustedHostMiddleware(BaseHTTPMiddleware):
 
 
 class HTTPSRedirectMiddleware(BaseHTTPMiddleware):
+    """Middleware that redirects all HTTP requests to HTTPS."""
+
     async def dispatch(
         self, scope: dict, receive: Callable, send: Callable,
     ) -> None:

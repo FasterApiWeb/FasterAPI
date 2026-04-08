@@ -3,10 +3,27 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "FasterAPI"
+name = "faster-api"
 version = "0.1.0"
-description = "Faster — FastAPI speed, without the wait"
+description = "FasterAPI — A high-performance ASGI web framework. FastAPI speed, without the wait."
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.11"
+authors = [
+    { name = "Eshwar Chandra Vidhyasagar Thedla" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: AsyncIO",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Internet :: WWW/HTTP",
+    "Typing :: Typed",
+]
 dependencies = [
     "uvloop>=0.19.0",
     "msgspec>=0.18.0",
@@ -19,8 +36,27 @@ dev = [
     "httpx>=0.27.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
+    "mypy>=1.10.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/EshwarCVS/FasterAPI"
+Repository = "https://github.com/EshwarCVS/FasterAPI"
+Documentation = "https://github.com/EshwarCVS/FasterAPI#readme"
+Issues = "https://github.com/EshwarCVS/FasterAPI/issues"
+Changelog = "https://github.com/EshwarCVS/FasterAPI/blob/master/CHANGELOG.md"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+check_untyped_defs = true
+ignore_missing_imports = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["FasterAPI"]

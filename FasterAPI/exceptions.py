@@ -6,6 +6,8 @@ import msgspec.json
 
 
 class HTTPException(Exception):
+    """An HTTP exception that results in an error response with the given status code."""
+
     def __init__(
         self,
         status_code: int = 500,
@@ -21,6 +23,8 @@ class HTTPException(Exception):
 
 
 class RequestValidationError(Exception):
+    """Raised when request data fails validation."""
+
     def __init__(self, errors: list[dict[str, Any]]) -> None:
         self.errors = errors
 
