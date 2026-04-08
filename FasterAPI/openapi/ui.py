@@ -2,6 +2,7 @@ from __future__ import annotations
 
 
 def swagger_ui_html(openapi_url: str, title: str = "FasterAPI - Swagger UI") -> str:
+    """Generate the HTML page for the Swagger UI interactive documentation."""
     return f"""<!DOCTYPE html>
 <html>
 <head>
@@ -29,6 +30,7 @@ def swagger_ui_html(openapi_url: str, title: str = "FasterAPI - Swagger UI") -> 
 
 
 def redoc_html(openapi_url: str, title: str = "FasterAPI - ReDoc") -> str:
+    """Generate the HTML page for the ReDoc API documentation."""
     return f"""<!DOCTYPE html>
 <html>
 <head>

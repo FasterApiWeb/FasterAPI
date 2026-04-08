@@ -7,17 +7,23 @@ import msgspec.json
 
 
 class WebSocketState:
+    """Enumeration of WebSocket connection states."""
+
     CONNECTING = 0
     CONNECTED = 1
     DISCONNECTED = 2
 
 
 class WebSocketDisconnect(Exception):
+    """Raised when a WebSocket connection is disconnected."""
+
     def __init__(self, code: int = 1000) -> None:
         self.code = code
 
 
 class WebSocket:
+    """Represents a WebSocket connection."""
+
     __slots__ = (
         "_scope", "_receive", "_send", "path", "path_params",
         "client", "headers", "query_params", "_state",
@@ -40,12 +46,13 @@ class WebSocket:
 
         qs = scope.get("query_string", b"")
         parsed = parse_qs(qs.decode("latin-1") if isinstance(qs, bytes) else qs)
-        self.query_params: dict[str, str] = {
+        self.query_params: dict[str, Any] = {
             k: v[0] if len(v) == 1 else v
             for k, v in parsed.items()
         }
 
     async def accept(self, subprotocol: str | None = None) -> None:
+        """Accept the WebSocket connection, optionally selecting a subprotocol."""
         if self._state != WebSocketState.CONNECTING:
             raise RuntimeError("WebSocket is not in CONNECTING state")
         msg: dict[str, Any] = {"type": "websocket.accept"}
@@ -54,35 +61,43 @@ class WebSocket:
         await self._send(msg)
         self._state = WebSocketState.CONNECTED
 
-    async def _receive_message(self) -> dict:
-        message = await self._receive()
+    async def _receive_message(self) -> dict[str, Any]:
+        message: dict[str, Any] = await self._receive()
         if message["type"] == "websocket.disconnect":
             self._state = WebSocketState.DISCONNECTED
             raise WebSocketDisconnect(message.get("code", 1000))
         return message
 
     async def receive_text(self) -> str:
+        """Receive a text message from the WebSocket."""
         message = await self._receive_message()
-        return message.get("text", "")
+        return str(message.get("text", ""))
 
     async def receive_bytes(self) -> bytes:
+        """Receive a binary message from the WebSocket."""
         message = await self._receive_message()
-        return message.get("bytes", b"")
+        result = message.get("bytes", b"")
+        return bytes(result) if not isinstance(result, bytes) else result
 
     async def receive_json(self) -> Any:
+        """Receive a message from the WebSocket and parse it as JSON."""
         text = await self.receive_text()
-        return msgspec.json.decode(text.encode())
+        return msgspec.json.decode(text.encode())  # type: ignore[return-value]
 
     async def send_text(self, data: str) -> None:
+        """Send a text message through the WebSocket."""
         await self._send({"type": "websocket.send", "text": data})
 
     async def send_bytes(self, data: bytes) -> None:
+        """Send a binary message through the WebSocket."""
         await self._send({"type": "websocket.send", "bytes": data})
 
     async def send_json(self, data: Any) -> None:
+        """Send data as a JSON-encoded text message through the WebSocket."""
         encoded = msgspec.json.encode(data)
         await self.send_text(encoded.decode())
 
     async def close(self, code: int = 1000, reason: str = "") -> None:
+        """Close the WebSocket connection."""
         await self._send({"type": "websocket.close", "code": code, "reason": reason})
         self._state = WebSocketState.DISCONNECTED
