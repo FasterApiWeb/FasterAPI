@@ -3,7 +3,7 @@ import inspect
 
 import pytest
 
-from faster.params import (
+from FasterAPI.params import (
     MISSING,
     Body,
     Cookie,
@@ -13,7 +13,7 @@ from faster.params import (
     Path,
     Query,
 )
-from faster.request import Request
+from FasterAPI.request import Request
 
 
 # --------------- helpers ---------------

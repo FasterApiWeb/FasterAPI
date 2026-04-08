@@ -104,7 +104,7 @@ pip install -e ".[dev]"
 
 ```python
 import msgspec
-from faster import Faster, Path
+from FasterAPI import Faster, Path
 
 app = Faster()
 
@@ -159,7 +159,7 @@ FasterAPI's `Depends()` works exactly like FastAPI's — declare a callable
 and FasterAPI will resolve it (and its sub-dependencies) automatically:
 
 ```python
-from faster import Depends, Faster
+from FasterAPI import Depends, Faster
 
 app = Faster()
 
@@ -181,7 +181,7 @@ can itself declare `Depends()` parameters.
 Extract data from different parts of the request using descriptors:
 
 ```python
-from faster import Faster, Path, Query, Header, Cookie, Body
+from FasterAPI import Faster, Path, Query, Header, Cookie, Body
 
 app = Faster()
 
@@ -212,7 +212,7 @@ Each descriptor maps to a specific part of the HTTP request:
 Run work after the response is sent — logging, sending emails, etc.:
 
 ```python
-from faster import BackgroundTasks, Faster
+from FasterAPI import BackgroundTasks, Faster
 
 app = Faster()
 
@@ -232,7 +232,7 @@ they don't block the client.
 ### WebSocket
 
 ```python
-from faster import Faster, WebSocket, WebSocketDisconnect
+from FasterAPI import Faster, WebSocket, WebSocketDisconnect
 
 app = Faster()
 
@@ -258,7 +258,7 @@ sub-interpreter runs with its own GIL, enabling true parallelism without
 process overhead — the closest Python equivalent to Go's goroutines:
 
 ```python
-from faster import Faster, run_in_subinterpreter
+from FasterAPI import Faster, run_in_subinterpreter
 
 app = Faster()
 
@@ -276,7 +276,7 @@ async def compute(n: int):
 You can also manage a pool directly:
 
 ```python
-from faster import SubInterpreterPool
+from FasterAPI import SubInterpreterPool
 
 pool = SubInterpreterPool(max_workers=8)
 result = await pool.run(my_func, arg1, arg2)
@@ -286,7 +286,7 @@ pool.shutdown()
 ### Middleware
 
 ```python
-from faster import CORSMiddleware, Faster, GZipMiddleware
+from FasterAPI import CORSMiddleware, Faster, GZipMiddleware
 
 app = Faster()
 
@@ -314,7 +314,7 @@ Available middleware:
 Group routes under a common prefix and set of tags:
 
 ```python
-from faster import Faster, FasterRouter
+from FasterAPI import Faster, FasterRouter
 
 router = FasterRouter(prefix="/api/v1", tags=["v1"])
 
@@ -341,7 +341,7 @@ and error handling:
 
 ```python
 import msgspec
-from faster import (
+from FasterAPI import (
     BackgroundTasks, CORSMiddleware, Depends, Faster, FasterRouter,
     HTTPException, Path, Query, WebSocket, WebSocketDisconnect,
 )
@@ -455,11 +455,11 @@ a find-and-replace.
 
 | FastAPI | FasterAPI | Notes |
 |---|---|---|
-| `from fastapi import FastAPI` | `from faster import Faster` | App class renamed |
+| `from fastapi import FastAPI` | `from FasterAPI import Faster` | App class renamed |
 | `app = FastAPI()` | `app = Faster()` | Same constructor kwargs |
 | `class Item(BaseModel):` | `class Item(msgspec.Struct):` | msgspec instead of Pydantic |
-| `from fastapi import APIRouter` | `from faster import FasterRouter` | Router renamed |
-| `from starlette.testclient import TestClient` | `from faster import TestClient` | Built-in |
+| `from fastapi import APIRouter` | `from FasterAPI import FasterRouter` | Router renamed |
+| `from starlette.testclient import TestClient` | `from FasterAPI import TestClient` | Built-in |
 
 ### What stays identical
 
@@ -508,7 +508,7 @@ async def create(item: Item):
 
 ```python
 import msgspec
-from faster import Faster, Depends, HTTPException, Query
+from FasterAPI import Faster, Depends, HTTPException, Query
 
 app = Faster()
 
@@ -572,8 +572,8 @@ Key design decisions:
 ## Project Structure
 
 ```
-faster/
-├── faster/
+FasterAPI/
+├── FasterAPI/
 │   ├── __init__.py
 │   ├── app.py               # Core Faster class
 │   ├── router.py            # RadixRouter + FasterRouter
@@ -581,7 +581,7 @@ faster/
 │   ├── response.py          # Response, JSONResponse, etc
 │   ├── params.py            # Path, Query, Body, Header, Cookie
 │   ├── dependencies.py      # Depends() system
-│   ├── middleware.py         # CORS, GZip, Trusted Hosts
+│   ├── middleware.py        # CORS, GZip, Trusted Hosts
 │   ├── exceptions.py        # HTTPException, handlers
 │   ├── background.py        # BackgroundTasks
 │   ├── websocket.py         # WebSocket support
@@ -605,7 +605,7 @@ faster/
 │   ├── full_crud_app.py
 │   └── websocket_app.py
 ├── benchmarks/
-│   └── compare.py           # Faster vs FastAPI vs Fiber
+│   └── compare.py           # FasterAPI vs FastAPI vs Fiber
 ├── pyproject.toml
 ├── README.md
 └── .github/
@@ -629,7 +629,7 @@ pip install -e ".[dev]"
 pytest
 
 # Type check
-mypy faster/
+mypy FasterAPI/
 
 # Run benchmarks
 python benchmarks/compare.py

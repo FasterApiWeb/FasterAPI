@@ -34,7 +34,7 @@ def _run_fasterapi(port: int, ready: multiprocessing.Event) -> None:
     import uvicorn
     import msgspec
 
-    from faster.app import Faster
+    from FasterAPI.app import Faster
 
     class User(msgspec.Struct):
         name: str

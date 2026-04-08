@@ -11,7 +11,7 @@ Endpoints:
 Open multiple browser tabs to http://localhost:8000/ to test the chat.
 """
 
-from faster import Faster, HTMLResponse, WebSocket, WebSocketDisconnect
+from FasterAPI import Faster, HTMLResponse, WebSocket, WebSocketDisconnect
 
 app = Faster(
     title="WebSocket Chat",
