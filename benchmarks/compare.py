@@ -91,7 +91,6 @@ def _run_fastapi(port: int, ready: multiprocessing.Event) -> None:
 # ───────────────────────────────────────────────
 
 async def _wait_for_server(url: str, timeout: float = 10.0) -> None:
-    """Poll until the server responds or timeout."""
     deadline = time.monotonic() + timeout
     async with httpx.AsyncClient() as client:
         while time.monotonic() < deadline:
@@ -113,7 +112,6 @@ async def _benchmark_endpoint(
     concurrency: int,
     json_body: Optional[dict] = None,
 ) -> dict[str, Any]:
-    """Fire `total` requests at `concurrency` level, return stats."""
     latencies: list[float] = []
     errors = 0
     semaphore = asyncio.Semaphore(concurrency)
@@ -155,25 +153,19 @@ async def _benchmark_endpoint(
 
 
 async def _run_all_benchmarks(
-    base_url: str,
-    total: int,
-    concurrency: int,
+    base_url: str, total: int, concurrency: int,
 ) -> dict[str, dict[str, Any]]:
-    """Run all benchmarks against one server, return results dict."""
     body = {"name": "Alice", "email": "alice@test.com"}
     results = {}
-
     async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
         # Warmup
         await _benchmark_endpoint(client, "GET", "/health", min(200, total), min(20, concurrency))
         await _benchmark_endpoint(client, "GET", "/users/1", min(200, total), min(20, concurrency))
         await _benchmark_endpoint(client, "POST", "/users", min(200, total), min(20, concurrency), body)
-
         # Actual benchmarks
         results["health"] = await _benchmark_endpoint(client, "GET", "/health", total, concurrency)
         results["users_get"] = await _benchmark_endpoint(client, "GET", "/users/42", total, concurrency)
         results["users_post"] = await _benchmark_endpoint(client, "POST", "/users", total, concurrency, body)
-
     return results
 
 
@@ -201,14 +193,38 @@ def _print_table(label: str, faster: dict, fastapi: dict) -> None:
     print(f"  {'Errors':<20} {faster['errors']:>14} {fastapi['errors']:>14}")
 
 
+def _print_summary(faster_results: dict, fastapi_results: dict) -> None:
+    print()
+    print("  Summary")
+    print(f"  {'─' * 72}")
+    for endpoint, label in [
+        ("health", "GET /health"),
+        ("users_get", "GET /users/{id}"),
+        ("users_post", "POST /users"),
+    ]:
+        f = faster_results[endpoint]
+        fa = fastapi_results[endpoint]
+        speedup = f["rps"] / fa["rps"] if fa["rps"] > 0 else float("inf")
+        print(f"  {label:<30} {speedup:>6.2f}x faster  "
+              f"({f['rps']:,.0f} vs {fa['rps']:,.0f} req/s)")
+    print()
+    print("  Note: For Fiber (Go) comparison, use wrk/bombardier against")
+    print("  a Fiber app on the same machine. Typical Fiber numbers are")
+    print("  50,000-120,000 req/s. FasterAPI aims for comparable Python")
+    print("  throughput using uvloop + msgspec + radix routing.")
+    print()
+    print("=" * 78)
+    print()
+
+
 # ───────────────────────────────────────────────
 #  Main
 # ───────────────────────────────────────────────
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="FasterAPI vs FastAPI benchmark")
-    parser.add_argument("--requests", type=int, default=10_000, help="Total requests per endpoint (default: 10000)")
-    parser.add_argument("--concurrency", type=int, default=100, help="Concurrent requests (default: 100)")
+    parser.add_argument("--requests", type=int, default=10_000)
+    parser.add_argument("--concurrency", type=int, default=100)
     args = parser.parse_args()
 
     total = args.requests
@@ -252,9 +268,7 @@ def main() -> None:
         _print_table("GET /users/{id} — path parameter extraction", faster_results["users_get"], fastapi_results["users_get"])
         _print_table("POST /users — JSON body parsing & validation", faster_results["users_post"], fastapi_results["users_post"])
 
-        print()
-        print("=" * 78)
-        print()
+        _print_summary(faster_results, fastapi_results)
 
     finally:
         proc_faster.terminate()

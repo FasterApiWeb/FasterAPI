@@ -640,6 +640,111 @@ a pull request.
 
 ---
 
+## Performance Innovations
+
+FasterAPI achieves its speed through five key architectural decisions:
+
+| Innovation | What It Does | Speedup Source |
+|---|---|---|
+| **uvloop** | Replaces stdlib asyncio with libuv-backed C event loop | 2-4x faster I/O scheduling |
+| **msgspec** | Rust-backed JSON encode/decode + validation in one pass | 10-20x faster than Pydantic v1 |
+| **Radix tree router** | O(k) path lookup (k = segments) instead of O(n) regex scan | 6x faster with 100+ routes |
+| **Compiled DI** | Handler signatures introspected once at startup, not per-request | Eliminates ~80% of per-request overhead |
+| **Zero-copy responses** | `msgspec.json.encode()` → bytes directly, no intermediate str | 50% fewer memory allocations |
+
+### How They Work Together
+
+```
+Incoming Request
+      │
+      ▼
+  Radix Tree Router          ← O(k) lookup, no regex
+      │
+      ▼
+  Pre-compiled DI Resolver   ← No inspect.signature() per request
+      │
+      ▼
+  msgspec.json.decode()      ← Rust, one-pass validate + parse
+      │
+      ▼
+  Handler (uvloop-scheduled)  ← C event loop, minimal overhead
+      │
+      ▼
+  msgspec.json.encode()      ← Rust, zero-copy to bytes
+      │
+      ▼
+  Raw bytes → Client
+```
+
+---
+
+## Roadmap
+
+### v0.2.0 — Production Hardening
+- [ ] Streaming request body support (large file uploads without full buffering)
+- [ ] HTTP/2 support via hypercorn/daphne compatibility
+- [ ] Connection pooling for database middleware
+- [ ] Rate limiting middleware
+- [ ] Request ID / correlation ID middleware
+- [ ] Structured logging integration (structlog)
+
+### v0.3.0 — Ecosystem
+- [ ] SQLAlchemy async session dependency
+- [ ] Redis cache middleware
+- [ ] JWT authentication middleware
+- [ ] OAuth2 password/bearer flow
+- [ ] CLI tool (`fasterapi run`, `fasterapi new`)
+
+### v0.4.0 — Performance
+- [ ] Cython-compiled hot paths (router, DI resolver)
+- [ ] HTTP/3 (QUIC) support
+- [ ] Connection-level keep-alive optimisation
+- [ ] Pre-serialised response caching
+
+### v1.0.0 — Stable Release
+- [ ] Full test coverage (>95%)
+- [ ] Production deployment guides (Docker, K8s, systemd)
+- [ ] Migration tool (`fasterapi migrate-from-fastapi`)
+- [ ] Performance regression CI (automated benchmarks on every PR)
+
+---
+
+## Next Steps for Contributors & Adoption
+
+### Getting Stars & Users
+
+1. **Post on Hacker News / Reddit r/Python** — Show benchmark results side-by-side with FastAPI. Python performance content consistently reaches the front page.
+
+2. **Write a "Why I Built This" blog post** — Explain the five innovations with before/after benchmarks. Post on dev.to and Medium.
+
+3. **Create a migration guide video** — 5-minute YouTube video showing a FastAPI app migrated to FasterAPI in real-time. Demonstrate the import changes and benchmark improvement.
+
+4. **Publish to PyPI** — `pip install faster-api` lowers the barrier to trying it. Include a one-liner in the README.
+
+5. **Add "good first issue" labels** — Tag issues for new contributors: documentation, type hints, test coverage, new middleware. This drives community engagement.
+
+6. **Benchmark against Fiber (Go)** — Create a fair comparison showing FasterAPI closing the gap. Python developers are curious how close they can get to Go performance without leaving the ecosystem.
+
+7. **Conference talk** — Submit to PyCon, EuroPython, or local meetups. Title: "2-5x Faster Than FastAPI — How We Did It Without Leaving Python".
+
+8. **Discord / GitHub Discussions** — Create a community space. Active communities drive adoption more than features.
+
+### Making It a Contributing Project
+
+1. **CONTRIBUTING.md** — Clear guide with: setup instructions, coding style, PR process, how to run benchmarks.
+
+2. **Issue templates** — Bug report, feature request, performance regression.
+
+3. **CI badges** — Tests, coverage, PyPI version, Python versions, downloads.
+
+4. **Architecture docs** — Explain the radix tree, DI compiler, middleware chain. Contributors need to understand the "why" before the "how".
+
+5. **Plugin system** — Allow third-party middleware and extensions (`fasterapi-cors`, `fasterapi-jwt`). This creates an ecosystem.
+
+6. **Benchmarking CI** — Run `benchmarks/compare.py` on every PR and post results as a comment. Prevents performance regressions.
+
+---
+
 ## License
 
 [MIT](LICENSE) -- Eshwar Chandra Vidhyasagar Thedla

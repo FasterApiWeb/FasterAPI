@@ -1,4 +1,10 @@
-"""FasterAPI — A high-performance ASGI web framework."""
+"""FasterAPI — A high-performance ASGI web framework.
+
+Drop-in FastAPI replacement powered by msgspec (Rust-backed JSON),
+radix-tree routing, uvloop, and Python 3.13 sub-interpreters.
+"""
+
+__version__ = "0.1.0"
 
 from .app import Faster
 from .background import BackgroundTask, BackgroundTasks
@@ -29,40 +35,51 @@ from .testclient import TestClient
 from .websocket import WebSocket, WebSocketDisconnect, WebSocketState
 
 __all__ = [
-    "BackgroundTask",
-    "BackgroundTasks",
-    "BaseHTTPMiddleware",
-    "Body",
-    "CORSMiddleware",
-    "Cookie",
-    "Depends",
+    # Core
     "Faster",
     "FasterRouter",
-    "File",
-    "FileResponse",
-    "Form",
-    "FormData",
-    "GZipMiddleware",
-    "HTMLResponse",
-    "HTTPException",
-    "HTTPSRedirectMiddleware",
-    "Header",
-    "JSONResponse",
-    "Path",
-    "PlainTextResponse",
-    "Query",
     "RadixRouter",
-    "RedirectResponse",
     "Request",
-    "RequestValidationError",
+    # Responses
     "Response",
+    "JSONResponse",
+    "HTMLResponse",
+    "PlainTextResponse",
+    "RedirectResponse",
     "StreamingResponse",
-    "SubInterpreterPool",
-    "TestClient",
+    "FileResponse",
+    # Params
+    "Body",
+    "Cookie",
+    "File",
+    "Form",
+    "Header",
+    "Path",
+    "Query",
+    # DI
+    "Depends",
+    # Exceptions
+    "HTTPException",
+    "RequestValidationError",
+    # Middleware
+    "BaseHTTPMiddleware",
+    "CORSMiddleware",
+    "GZipMiddleware",
+    "HTTPSRedirectMiddleware",
     "TrustedHostMiddleware",
-    "UploadFile",
+    # Background
+    "BackgroundTask",
+    "BackgroundTasks",
+    # WebSocket
     "WebSocket",
     "WebSocketDisconnect",
     "WebSocketState",
+    # Data structures
+    "FormData",
+    "UploadFile",
+    # Concurrency
+    "SubInterpreterPool",
     "run_in_subinterpreter",
+    # Testing
+    "TestClient",
 ]
