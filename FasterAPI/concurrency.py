@@ -118,9 +118,16 @@ async def run_in_threadpool(func: Callable, *args: Any) -> Any:  # type: ignore[
 #  goroutines: lightweight, parallel, share-nothing by default.
 # ───────────────────────────────────────────────────────────────────────
 
+_HAS_INTERPRETERS = False
 if _PY313_PLUS:
-    import interpreters  # type: ignore[import-not-found]
-    import interpreters.channels  # type: ignore[import-not-found]
+    try:
+        import interpreters  # type: ignore[import-not-found]
+        import interpreters.channels  # type: ignore[import-not-found]
+        _HAS_INTERPRETERS = True
+    except ImportError:
+        pass
+
+if _HAS_INTERPRETERS:
 
     class SubInterpreterPool:
         """Pool of Python 3.13+ sub-interpreters, each with its own GIL.
@@ -185,56 +192,22 @@ if _PY313_PLUS:
             self._initialized = False
 
 # ───────────────────────────────────────────────────────────────────────
-#  Python 3.11–3.12: Fallback using ProcessPoolExecutor
+#  Fallback: ProcessPoolExecutor for CPU parallelism
 # ───────────────────────────────────────────────────────────────────────
 #
-#  No sub-interpreter API is exposed at the Python level.
-#  CPU parallelism requires multiprocessing (pickle serialisation).
-#  Same public API, different backend.
+#  Used when the `interpreters` module is unavailable (Python < 3.14,
+#  or 3.13 without the experimental stdlib module).
+#  Same public API, ProcessPoolExecutor backend (pickle-based).
 # ───────────────────────────────────────────────────────────────────────
 
-elif _PY311_PLUS:
+if not _HAS_INTERPRETERS:
 
     class SubInterpreterPool:  # type: ignore[no-redef]
-        """Fallback pool for Python 3.11–3.12 using ProcessPoolExecutor.
+        """Fallback pool using ProcessPoolExecutor.
 
-        Provides the same ``run()`` / ``shutdown()`` API. Upgrade to
-        Python 3.13+ for true sub-interpreter support with per-interpreter
-        GIL (no pickling, lower overhead).
-        """
-
-        def __init__(self, max_workers: int | None = None) -> None:
-            self._executor = ProcessPoolExecutor(
-                max_workers=max_workers or _CPU_COUNT,
-            )
-
-        async def run(self, func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
-            """Execute *func* in a worker process (pickle-based)."""
-            loop = asyncio.get_running_loop()
-            return await loop.run_in_executor(
-                self._executor, partial(func, *args),
-            )
-
-        def shutdown(self) -> None:
-            """Shut down the process pool."""
-            self._executor.shutdown(wait=False)
-
-# ───────────────────────────────────────────────────────────────────────
-#  Python 3.10 and older: Minimal fallback
-# ───────────────────────────────────────────────────────────────────────
-#
-#  Same ProcessPoolExecutor approach. asyncio internals are slower on
-#  3.10- but functionally identical for our pool usage.
-# ───────────────────────────────────────────────────────────────────────
-
-else:
-
-    class SubInterpreterPool:  # type: ignore[no-redef]
-        """Fallback pool for Python < 3.11 using ProcessPoolExecutor.
-
-        FasterAPI officially supports Python 3.11+, but this fallback
-        allows basic operation on 3.10 and 3.9. Upgrade to 3.13+ for
-        the best performance.
+        Provides the same ``run()`` / ``shutdown()`` API as the
+        sub-interpreter pool. Upgrade to a Python version with the
+        ``interpreters`` module for true per-interpreter GIL support.
         """
 
         def __init__(self, max_workers: int | None = None) -> None:
@@ -310,10 +283,12 @@ def install_event_loop() -> str:
     """
     try:
         import uvloop
-        uvloop.install()
+        if _PY312_PLUS:
+            # uvloop.install() is deprecated on 3.12+; set the policy instead
+            import asyncio
+            asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
+        else:
+            uvloop.install()
         return "uvloop"
     except ImportError:
-        # No uvloop available — use stdlib asyncio.
-        # On Python 3.13+, stdlib asyncio is significantly faster than
-        # on older versions, so this is an acceptable fallback.
         return "asyncio"

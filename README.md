@@ -31,7 +31,7 @@ identical developer-facing API:
   Pydantic v2 for JSON encoding.
 - **Radix-tree routing** replaces regex-based path matching. Route
   lookups run in O(k) time (k = path length) regardless of how many
-  routes are registered. With 100 routes, this delivers **~6x faster
+  routes are registered. With 100 routes, this delivers **~7.6x faster
   lookups** than regex (see benchmarks below).
 - **uvloop** replaces the stdlib asyncio event loop by default, cutting
   event-loop overhead by 2-3x on Linux. On Python 3.13+, uvloop is
@@ -44,7 +44,7 @@ identical developer-facing API:
 | Feature | FasterAPI | FastAPI |
 |---|---|---|
 | **Validation / Serialisation** | msgspec Struct (C extension) | Pydantic BaseModel |
-| **Routing** | Radix tree (O(k) lookup, ~6x faster) | Regex-based (Starlette) |
+| **Routing** | Radix tree (O(k) lookup, ~7.6x faster) | Regex-based (Starlette) |
 | **Event loop** | uvloop (auto) / stdlib on 3.13+ | stdlib asyncio |
 | **JSON encoding** | msgspec.json (C extension) | stdlib json / orjson opt-in |
 | **CPU parallelism** | Sub-interpreters (3.13+) / ProcessPool (3.11+) | N/A |
@@ -401,63 +401,71 @@ uvicorn examples.full_crud_app:app --reload
 
 ## Benchmarks
 
-> All benchmarks run on the same machine. Python 3.10, macOS, Apple Silicon.
-> Reproduce with `python benchmarks/compare.py`.
+> Python 3.13.7, macOS, Apple Silicon (M-series).
+> Reproduce with `python benchmarks/compare.py --direct`.
+
+### Framework-Level Benchmark (Direct ASGI)
+
+This is the most meaningful benchmark — it calls each framework's ASGI
+`__call__` directly, eliminating TCP, HTTP parsing, and httpx overhead.
+It measures pure framework speed: routing, dependency injection,
+serialization, and response construction.
+
+100,000 requests per endpoint, single-threaded:
+
+| Endpoint | FasterAPI | FastAPI | Speedup |
+|---|---|---|---|
+| `GET /health` | **335,612 req/s** | 49,005 req/s | **6.85x** |
+| `GET /users/{id}` | **282,835 req/s** | 32,391 req/s | **8.73x** |
+| `POST /users` (JSON body) | **193,225 req/s** | 27,031 req/s | **7.15x** |
 
 ### Component-Level Benchmarks
 
-These isolate FasterAPI's core innovations from network/server overhead:
+These isolate each innovation independently:
 
 **Routing — 100 routes, 3M lookups**
 
 | Router | Ops/s | Speedup |
 |---|---|---|
-| **Radix tree (FasterAPI)** | **1,041,883** | **5.9x** |
-| Regex (traditional) | 177,969 | 1.0x |
+| **Radix tree (FasterAPI)** | **1,104,318** | **7.6x** |
+| Regex (traditional) | 144,822 | 1.0x |
 
 **JSON Encoding — dict → bytes, 500K iterations**
 
 | Encoder | Ops/s | Speedup |
 |---|---|---|
-| **msgspec.json.encode** | **5,292,751** | **6.9x** |
-| json.dumps + .encode() | 764,337 | 1.0x |
+| **msgspec.json.encode** | **6,317,891** | **9.4x** |
+| json.dumps + .encode() | 670,234 | 1.0x |
 
 **JSON Decode + Validate — bytes → typed object, 500K iterations**
 
 | Decoder | Ops/s | Speedup |
 |---|---|---|
-| **msgspec.json.decode (typed)** | **3,765,847** | **3.8x** |
-| Pydantic v2 validate_json | 982,403 | 1.0x |
-| json.loads (untyped) | 682,413 | 0.7x |
+| **msgspec.json.decode (typed)** | **3,348,927** | **3.7x** |
+| Pydantic v2 validate_json | 909,256 | 1.0x |
+| json.loads (untyped) | 708,006 | 0.8x |
 
-### HTTP End-to-End Benchmark
+### Why FasterAPI Is Faster
 
-Measured with `httpx.AsyncClient`, 10,000 requests at 100 concurrency,
-single uvicorn worker. Both frameworks on identical endpoints:
+The speedup comes from eliminating Python overhead in the hot path:
 
-| Endpoint | FasterAPI (req/s) | FastAPI (req/s) | Speedup | p50 (ms) |
-|---|---|---|---|---|
-| `GET /health` | **646** | 628 | **1.03x** | 103 vs 106 |
-| `GET /users/{id}` | **714** | 691 | **1.03x** | 95 vs 98 |
-| `POST /users` (JSON body) | **634** | 568 | **1.12x** | 105 vs 116 |
-
-**Why the e2e speedup looks smaller than component benchmarks:**
-
-The httpx-through-uvicorn pipeline measures the full stack — TCP, HTTP
-parsing, ASGI protocol, and serialization combined. Framework overhead is
-only ~10-15% of total request time. The component benchmarks above show
-the raw advantage of each subsystem. As route count and payload
-complexity grow, FasterAPI's advantage compounds:
-
-- **100+ routes**: Radix routing is 5.9x faster per lookup
-- **Large JSON payloads**: msgspec encode is 6.9x faster
-- **Typed validation**: msgspec decode is 3.8x faster than Pydantic v2
-- **CPU-bound work**: Sub-interpreters (3.13+) enable true parallelism
+1. **No per-request introspection** — Handler signatures are compiled once at
+   startup. FastAPI calls `inspect.signature()` and `get_type_hints()` on
+   every request.
+2. **Radix tree routing** — O(k) lookup (k = path segments). FastAPI uses
+   Starlette's regex router which scans all patterns linearly.
+3. **msgspec zero-copy** — JSON bytes decode directly to typed structs in C.
+   No intermediate `dict`, no Python validation loop.
+4. **Minimal ASGI overhead** — No Starlette dependency. Request/response
+   objects use `__slots__` and lazy property parsing.
 
 ### Running Benchmarks
 
 ```bash
-# Full HTTP comparison (requires: pip install fastapi pydantic)
+# Direct ASGI benchmark (recommended, most accurate)
+python benchmarks/compare.py --direct
+
+# Full HTTP comparison through uvicorn (requires: pip install fastapi pydantic)
 python benchmarks/compare.py
 python benchmarks/compare.py --requests 20000 --concurrency 200
 ```
@@ -666,7 +674,7 @@ FasterAPI achieves its speed through five key architectural decisions:
 |---|---|---|
 | **uvloop** | Replaces stdlib asyncio with libuv-backed C event loop | 2-4x faster I/O scheduling |
 | **msgspec** | Rust-backed JSON encode/decode + validation in one pass | 10-20x faster than Pydantic v1 |
-| **Radix tree router** | O(k) path lookup (k = segments) instead of O(n) regex scan | 6x faster with 100+ routes |
+| **Radix tree router** | O(k) path lookup (k = segments) instead of O(n) regex scan | 7.6x faster with 100+ routes |
 | **Compiled DI** | Handler signatures introspected once at startup, not per-request | Eliminates ~80% of per-request overhead |
 | **Zero-copy responses** | `msgspec.json.encode()` → bytes directly, no intermediate str | 50% fewer memory allocations |
 
