@@ -104,7 +104,7 @@ pip install -e ".[dev]"
 
 ```python
 import msgspec
-from FasterAPI import Faster, Path
+from faster import Faster, Path
 
 app = Faster()
 
@@ -159,7 +159,7 @@ FasterAPI's `Depends()` works exactly like FastAPI's — declare a callable
 and FasterAPI will resolve it (and its sub-dependencies) automatically:
 
 ```python
-from FasterAPI import Depends, Faster
+from faster import Depends, Faster
 
 app = Faster()
 
@@ -181,7 +181,7 @@ can itself declare `Depends()` parameters.
 Extract data from different parts of the request using descriptors:
 
 ```python
-from FasterAPI import Faster, Path, Query, Header, Cookie, Body
+from faster import Faster, Path, Query, Header, Cookie, Body
 
 app = Faster()
 
@@ -212,7 +212,7 @@ Each descriptor maps to a specific part of the HTTP request:
 Run work after the response is sent — logging, sending emails, etc.:
 
 ```python
-from FasterAPI import BackgroundTasks, Faster
+from faster import BackgroundTasks, Faster
 
 app = Faster()
 
@@ -232,7 +232,7 @@ they don't block the client.
 ### WebSocket
 
 ```python
-from FasterAPI import Faster, WebSocket, WebSocketDisconnect
+from faster import Faster, WebSocket, WebSocketDisconnect
 
 app = Faster()
 
@@ -258,7 +258,7 @@ sub-interpreter runs with its own GIL, enabling true parallelism without
 process overhead — the closest Python equivalent to Go's goroutines:
 
 ```python
-from FasterAPI import Faster, run_in_subinterpreter
+from faster import Faster, run_in_subinterpreter
 
 app = Faster()
 
@@ -276,7 +276,7 @@ async def compute(n: int):
 You can also manage a pool directly:
 
 ```python
-from FasterAPI import SubInterpreterPool
+from faster import SubInterpreterPool
 
 pool = SubInterpreterPool(max_workers=8)
 result = await pool.run(my_func, arg1, arg2)
@@ -286,7 +286,7 @@ pool.shutdown()
 ### Middleware
 
 ```python
-from FasterAPI import CORSMiddleware, Faster, GZipMiddleware
+from faster import CORSMiddleware, Faster, GZipMiddleware
 
 app = Faster()
 
@@ -314,7 +314,7 @@ Available middleware:
 Group routes under a common prefix and set of tags:
 
 ```python
-from FasterAPI import Faster, FasterRouter
+from faster import Faster, FasterRouter
 
 router = FasterRouter(prefix="/api/v1", tags=["v1"])
 
@@ -341,9 +341,9 @@ and error handling:
 
 ```python
 import msgspec
-from FasterAPI import (
+from faster import (
     BackgroundTasks, CORSMiddleware, Depends, Faster, FasterRouter,
-    HTTPException, Path, Query, WebSocket, WebSocketDisconnect, status,
+    HTTPException, Path, Query, WebSocket, WebSocketDisconnect,
 )
 
 app = Faster(title="My API", version="1.0.0")
@@ -365,7 +365,7 @@ router = FasterRouter(prefix="/users", tags=["users"])
 async def list_users(store: dict = Depends(get_db)):
     return list(store.values())
 
-@router.post("", summary="Create user", status_code=status.HTTP_201_CREATED)
+@router.post("", summary="Create user", status_code=201)
 async def create_user(body: User, bg: BackgroundTasks, store: dict = Depends(get_db)):
     user_id = str(len(store) + 1)
     store[user_id] = {"id": user_id, "name": body.name, "email": body.email}
@@ -442,10 +442,6 @@ Both frameworks under `uvicorn` on the same machine (Python 3.11):
 # HTTP head-to-head (requires: pip install fastapi pydantic)
 python benchmarks/compare.py
 python benchmarks/compare.py --requests 5000 --concurrency 50
-
-# Routing profiler (no extra deps)
-python benchmarks/profile_routing.py
-python benchmarks/profile_routing.py --lookups 500000
 ```
 
 ---
@@ -459,12 +455,11 @@ a find-and-replace.
 
 | FastAPI | FasterAPI | Notes |
 |---|---|---|
-| `from fastapi import FastAPI` | `from FasterAPI import Faster` | App class renamed |
+| `from fastapi import FastAPI` | `from faster import Faster` | App class renamed |
 | `app = FastAPI()` | `app = Faster()` | Same constructor kwargs |
 | `class Item(BaseModel):` | `class Item(msgspec.Struct):` | msgspec instead of Pydantic |
-| `from fastapi import APIRouter` | `from FasterAPI import FasterRouter` | Router renamed |
-| `from starlette.testclient import TestClient` | `from FasterAPI import TestClient` | Built-in |
-| `from starlette.status import ...` | `from FasterAPI import status` | `status.HTTP_200_OK` etc. |
+| `from fastapi import APIRouter` | `from faster import FasterRouter` | Router renamed |
+| `from starlette.testclient import TestClient` | `from faster import TestClient` | Built-in |
 
 ### What stays identical
 
@@ -513,7 +508,7 @@ async def create(item: Item):
 
 ```python
 import msgspec
-from FasterAPI import Faster, Depends, HTTPException, Query
+from faster import Faster, Depends, HTTPException, Query
 
 app = Faster()
 
@@ -577,62 +572,45 @@ Key design decisions:
 ## Project Structure
 
 ```
-FasterAPI/                          # Root project directory
-|
-├── FasterAPI/                      # Python package
-│   ├── __init__.py                 # Public API — all exports
-│   ├── app.py                      # Faster ASGI application class
-│   ├── router.py                   # RadixRouter + FasterRouter
-│   ├── request.py                  # Request object (headers, body, form)
-│   ├── response.py                 # Response, JSONResponse, HTMLResponse, etc.
-│   ├── params.py                   # Path, Query, Body, Header, Cookie, File, Form
-│   ├── dependencies.py             # Depends() + DI resolver
-│   ├── exceptions.py               # HTTPException, RequestValidationError
-│   ├── middleware.py                # CORS, GZip, TrustedHost, HTTPS, Base
-│   ├── background.py               # BackgroundTask, BackgroundTasks
-│   ├── websocket.py                # WebSocket, WebSocketDisconnect, WebSocketState
-│   ├── datastructures.py           # UploadFile, FormData
-│   ├── concurrency.py              # Sub-interpreters (3.13+), thread/process pools
-│   ├── testclient.py               # TestClient (httpx-based, sync)
-│   ├── status.py                   # HTTP status code constants
-│   └── openapi/
-│       ├── __init__.py
-│       ├── generator.py            # OpenAPI 3.0.3 spec generation
-│       └── ui.py                   # Swagger UI + ReDoc HTML templates
-│
-├── tests/
+faster/
+├── faster/
 │   ├── __init__.py
-│   ├── test_routing.py             # Radix router: static, param, method matching
-│   ├── test_params.py              # Request parsing + parameter descriptors
-│   ├── test_deps.py                # Dependency injection + caching
-│   ├── test_responses.py           # All response classes + ASGI output
-│   ├── test_exceptions.py          # HTTP exceptions + custom handlers
-│   ├── test_openapi.py             # OpenAPI spec generation + UI routes
-│   ├── test_middleware.py          # CORS, GZip, TrustedHost, HTTPS
-│   ├── test_websocket.py           # WebSocket lifecycle + app integration
-│   ├── test_background.py          # Background task execution
-│   ├── test_formdata.py            # File uploads, form parsing, DI injection
-│   ├── test_integration.py         # Full CRUD + edge cases
-│   └── test_benchmark.py           # Performance regression guards
-│
+│   ├── app.py               # Core Faster class
+│   ├── router.py            # RadixRouter + FasterRouter
+│   ├── request.py           # Request object
+│   ├── response.py          # Response, JSONResponse, etc
+│   ├── params.py            # Path, Query, Body, Header, Cookie
+│   ├── dependencies.py      # Depends() system
+│   ├── middleware.py         # CORS, GZip, Trusted Hosts
+│   ├── exceptions.py        # HTTPException, handlers
+│   ├── background.py        # BackgroundTasks
+│   ├── websocket.py         # WebSocket support
+│   ├── datastructures.py    # UploadFile, Form
+│   ├── openapi/
+│   │   ├── __init__.py
+│   │   ├── generator.py     # Auto OpenAPI schema gen
+│   │   └── ui.py            # Swagger + ReDoc HTML
+│   ├── testclient.py        # TestClient (httpx)
+│   └── concurrency.py       # CPU/IO detection, executors
+├── tests/
+│   ├── test_routing.py
+│   ├── test_params.py
+│   ├── test_deps.py
+│   ├── test_openapi.py
+│   ├── test_middleware.py
+│   ├── test_websocket.py
+│   └── test_benchmark.py
 ├── examples/
-│   ├── basic_app.py                # Minimal hello world
-│   ├── full_crud_app.py            # Complete CRUD with all features
-│   └── websocket_app.py            # WebSocket echo + chat room
-│
+│   ├── basic_app.py
+│   ├── full_crud_app.py
+│   └── websocket_app.py
 ├── benchmarks/
-│   ├── compare.py                  # FasterAPI vs FastAPI HTTP head-to-head
-│   ├── profile_routing.py          # Radix tree vs regex cProfile
-│   └── README.md                   # Benchmark methodology
-│
-├── .github/
-│   └── workflows/
-│       ├── ci.yml                  # Test on Python 3.11, 3.12, 3.13
-│       └── release.yml             # Build + publish to PyPI on tags
-│
-├── pyproject.toml                  # Build config, deps, tool settings
-├── CHANGELOG.md                    # Release history
-└── README.md                       # This file
+│   └── compare.py           # Faster vs FastAPI vs Fiber
+├── pyproject.toml
+├── README.md
+└── .github/
+    └── workflows/
+        └── ci.yml
 ```
 
 ---
@@ -651,11 +629,10 @@ pip install -e ".[dev]"
 pytest
 
 # Type check
-mypy FasterAPI/
+mypy faster/
 
 # Run benchmarks
 python benchmarks/compare.py
-python benchmarks/profile_routing.py
 ```
 
 Please ensure all tests pass and mypy reports no errors before submitting

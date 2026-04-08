@@ -49,7 +49,7 @@ Homepage = "https://github.com/EshwarCVS/FasterAPI"
 Repository = "https://github.com/EshwarCVS/FasterAPI"
 Documentation = "https://github.com/EshwarCVS/FasterAPI#readme"
 Issues = "https://github.com/EshwarCVS/FasterAPI/issues"
-Changelog = "https://github.com/EshwarCVS/FasterAPI/blob/master/CHANGELOG.md"
+Changelog = "https://github.com/EshwarCVS/FasterAPI/blob/main/CHANGELOG.md"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -64,4 +64,4 @@ check_untyped_defs = true
 ignore_missing_imports = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["FasterAPI"]
+packages = ["faster"]

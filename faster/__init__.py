@@ -1,6 +1,5 @@
 """FasterAPI — A high-performance ASGI web framework."""
 
-from . import status
 from .app import Faster
 from .background import BackgroundTask, BackgroundTasks
 from .concurrency import SubInterpreterPool, run_in_subinterpreter
@@ -66,5 +65,4 @@ __all__ = [
     "WebSocketDisconnect",
     "WebSocketState",
     "run_in_subinterpreter",
-    "status",
 ]

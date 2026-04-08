@@ -5,12 +5,12 @@ from typing import Optional
 import msgspec
 import pytest
 
-from FasterAPI.app import Faster
-from FasterAPI.dependencies import Depends
-from FasterAPI.openapi.generator import generate_openapi
-from FasterAPI.openapi.ui import redoc_html, swagger_ui_html
-from FasterAPI.params import Body, Cookie, Header, Path, Query
-from FasterAPI.request import Request
+from faster.app import Faster
+from faster.dependencies import Depends
+from faster.openapi.generator import generate_openapi
+from faster.openapi.ui import redoc_html, swagger_ui_html
+from faster.params import Body, Cookie, Header, Path, Query
+from faster.request import Request
 
 
 # --------------- models ---------------

@@ -24,7 +24,7 @@ import time
 
 import msgspec
 
-from FasterAPI import (
+from faster import (
     BackgroundTasks,
     CORSMiddleware,
     Depends,
