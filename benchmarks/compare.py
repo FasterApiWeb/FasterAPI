@@ -228,14 +228,7 @@ def _print_summary(faster_results: dict, fastapi_results: dict) -> None:
 #  Main
 # ───────────────────────────────────────────────
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="FasterAPI vs FastAPI benchmark")
-    parser.add_argument("--requests", type=int, default=10_000)
-    parser.add_argument("--concurrency", type=int, default=100)
-    args = parser.parse_args()
-
-    total = args.requests
-    concurrency = args.concurrency
+def main(total: int = 10_000, concurrency: int = 100) -> None:
 
     port_faster = _find_free_port()
     port_fastapi = _find_free_port()
@@ -284,5 +277,120 @@ def main() -> None:
         proc_fastapi.join(timeout=3)
 
 
+def direct_benchmark() -> None:
+    """ASGI-level benchmark — no network, no httpx, pure framework speed."""
+    import json as _json
+    import msgspec as _msgspec
+
+    from FasterAPI.app import Faster
+
+    class UserF(_msgspec.Struct):
+        name: str
+        email: str
+
+    fapp = Faster(openapi_url=None, docs_url=None, redoc_url=None)
+
+    @fapp.get("/health")
+    async def _fh():
+        return {"status": "ok"}
+
+    @fapp.get("/users/{user_id}")
+    async def _fg(user_id: str):
+        return {"id": user_id, "name": "test"}
+
+    @fapp.post("/users")
+    async def _fp(user: UserF):
+        return {"name": user.name, "email": user.email}
+
+    try:
+        from fastapi import FastAPI
+        from pydantic import BaseModel
+    except ImportError:
+        print("  FastAPI/Pydantic not installed — skipping direct comparison")
+        return
+
+    class UserP(BaseModel):
+        name: str
+        email: str
+
+    faapp = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+    @faapp.get("/health")
+    async def _fah():
+        return {"status": "ok"}
+
+    @faapp.get("/users/{user_id}")
+    async def _fag(user_id: str):
+        return {"id": user_id, "name": "test"}
+
+    @faapp.post("/users")
+    async def _fap(user: UserP):
+        return {"name": user.name, "email": user.email}
+
+    N = 50_000
+
+    async def _make_scope(method: str, path: str, body: dict | None = None):
+        scope = {
+            "type": "http", "method": method, "path": path,
+            "query_string": b"", "headers": [
+                (b"content-type", b"application/json"), (b"host", b"localhost"),
+            ],
+            "client": ("127.0.0.1", 9999),
+        }
+        body_bytes = _json.dumps(body).encode() if body else b""
+        sent: list[dict] = []
+
+        async def receive():
+            return {"type": "http.request", "body": body_bytes, "more_body": False}
+
+        async def send(msg: dict):
+            sent.append(msg)
+
+        return scope, receive, send
+
+    async def _bench(app, method: str, path: str, body=None) -> float:
+        for _ in range(200):
+            s, r, sn = await _make_scope(method, path, body)
+            await app(s, r, sn)
+        start = time.perf_counter()
+        for _ in range(N):
+            s, r, sn = await _make_scope(method, path, body)
+            await app(s, r, sn)
+        return N / (time.perf_counter() - start)
+
+    async def _run():
+        body = {"name": "Alice", "email": "alice@test.com"}
+        print()
+        print("=" * 72)
+        print(f"  Direct ASGI benchmark — {N:,} requests (no network overhead)")
+        print("=" * 72)
+        print(f"\n  {'Endpoint':<28} {'FasterAPI':>12} {'FastAPI':>12} {'Speedup':>10}")
+        print(f"  {'─' * 66}")
+        for label, m, p, b in [
+            ("GET /health", "GET", "/health", None),
+            ("GET /users/{id}", "GET", "/users/42", None),
+            ("POST /users", "POST", "/users", body),
+        ]:
+            f_rps = await _bench(fapp, m, p, b)
+            fa_rps = await _bench(faapp, m, p, b)
+            print(f"  {label:<28} {f_rps:>10,.0f}/s {fa_rps:>10,.0f}/s"
+                  f" {f_rps / fa_rps:>9.2f}x")
+        print()
+        print("=" * 72)
+        print()
+
+    asyncio.run(_run())
+
+
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="FasterAPI vs FastAPI benchmark")
+    parser.add_argument("--requests", type=int, default=10_000)
+    parser.add_argument("--concurrency", type=int, default=100)
+    parser.add_argument("--direct", action="store_true",
+                        help="Run direct ASGI benchmark (no HTTP server)")
+    args = parser.parse_args()
+
+    if args.direct:
+        direct_benchmark()
+    else:
+        main(args.requests, args.concurrency)
