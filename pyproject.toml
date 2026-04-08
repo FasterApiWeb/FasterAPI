@@ -18,21 +18,26 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.11",
     "Topic :: Internet :: WWW/HTTP",
     "Typing :: Typed",
 ]
 dependencies = [
-    "uvloop>=0.19.0",
     "msgspec>=0.18.0",
     "uvicorn[standard]>=0.29.0",
     "python-multipart>=0.0.18",
 ]
 
 [project.optional-dependencies]
+# uvloop is optional — Python 3.13+ stdlib asyncio is fast enough,
+# but uvloop still provides a measurable speedup on all versions.
+uvloop = ["uvloop>=0.19.0"]
+# Default install includes uvloop for maximum performance
+all = ["uvloop>=0.19.0"]
 dev = [
+    "uvloop>=0.19.0",
     "httpx>=0.27.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",

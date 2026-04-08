@@ -4,8 +4,8 @@ import asyncio
 from typing import Any, Callable, Sequence
 
 import msgspec.json
-import uvloop
 
+from .concurrency import install_event_loop
 from .dependencies import _resolve_handler
 from .exceptions import (
     HTTPException,
@@ -20,7 +20,7 @@ from .response import HTMLResponse, JSONResponse, Response
 from .router import RadixRouter
 from .websocket import WebSocket
 
-uvloop.install()
+_event_loop = install_event_loop()
 
 
 class Faster:
