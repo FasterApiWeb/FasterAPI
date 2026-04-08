@@ -1,0 +1,213 @@
+name: Benchmark
+
+on:
+  pull_request:
+    branches: [master, stage]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev,benchmark]"
+
+      - name: Run ASGI benchmark
+        id: bench
+        run: |
+          python -c "
+          import asyncio, time, sys, json as _json
+          sys.path.insert(0, '.')
+          N = 50_000
+
+          import msgspec
+          from FasterAPI.app import Faster
+
+          class UserF(msgspec.Struct):
+              name: str
+              email: str
+
+          fapp = Faster(openapi_url=None, docs_url=None, redoc_url=None)
+
+          @fapp.get('/health')
+          async def fh(): return {'status': 'ok'}
+
+          @fapp.get('/users/{user_id}')
+          async def fg(user_id: str): return {'id': user_id, 'name': 'test'}
+
+          @fapp.post('/users')
+          async def fp(user: UserF): return {'name': user.name, 'email': user.email}
+
+          from fastapi import FastAPI
+          from pydantic import BaseModel
+
+          class UserP(BaseModel):
+              name: str
+              email: str
+
+          faapp = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+
+          @faapp.get('/health')
+          async def fah(): return {'status': 'ok'}
+
+          @faapp.get('/users/{user_id}')
+          async def fag(user_id: str): return {'id': user_id, 'name': 'test'}
+
+          @faapp.post('/users')
+          async def fap(user: UserP): return {'name': user.name, 'email': user.email}
+
+          async def make_scope(method, path, body=None):
+              scope = {'type':'http','method':method,'path':path,'query_string':b'',
+                       'headers':[(b'content-type',b'application/json'),(b'host',b'localhost')],
+                       'client':('127.0.0.1',9999)}
+              body_bytes = _json.dumps(body).encode() if body else b''
+              sent = []
+              async def receive(): return {'type':'http.request','body':body_bytes,'more_body':False}
+              async def send(msg): sent.append(msg)
+              return scope, receive, send
+
+          async def bench(app, method, path, body=None):
+              for _ in range(500): s,r,sn = await make_scope(method,path,body); await app(s,r,sn)
+              start = time.perf_counter()
+              for _ in range(N): s,r,sn = await make_scope(method,path,body); await app(s,r,sn)
+              return round(N/(time.perf_counter()-start))
+
+          async def main():
+              body = {'name':'Alice','email':'alice@test.com'}
+              results = {}
+              for label,m,p,b in [('health','GET','/health',None),('users_get','GET','/users/42',None),('users_post','POST','/users',body)]:
+                  f_rps = await bench(fapp,m,p,b)
+                  fa_rps = await bench(faapp,m,p,b)
+                  results[label] = {'fasterapi': f_rps, 'fastapi': fa_rps, 'speedup': round(f_rps/fa_rps, 2)}
+              print(_json.dumps(results))
+
+          asyncio.run(main())
+          " > bench_results.json
+
+      - name: Run routing benchmark
+        id: routing
+        run: |
+          python -c "
+          import time, re, sys, json
+          sys.path.insert(0, '.')
+          from FasterAPI.router import RadixRouter
+
+          router = RadixRouter()
+          for i in range(50): router.add_route('GET', f'/static/route{i}', lambda: None, {})
+          for i in range(30): router.add_route('GET', f'/users/{{id}}/action{i}', lambda: None, {})
+          for i in range(20): router.add_route('GET', f'/org/{{org_id}}/team/{{team_id}}/member{i}', lambda: None, {})
+
+          paths = ['/static/route25','/users/42/action15','/org/abc/team/xyz/member10']
+          N = 500_000
+          start = time.perf_counter()
+          for _ in range(N):
+              for p in paths: router.resolve('GET', p)
+          radix_ops = round((N*3)/(time.perf_counter()-start))
+
+          regex_routes = []
+          for i in range(50): regex_routes.append((re.compile(f'^/static/route{i}\$'), None))
+          for i in range(30): regex_routes.append((re.compile(r'^/users/(\w+)/action' + str(i) + r'\$'), None))
+          for i in range(20): regex_routes.append((re.compile(r'^/org/(\w+)/team/(\w+)/member' + str(i) + r'\$'), None))
+
+          def regex_resolve(path):
+              for p, h in regex_routes:
+                  m = p.match(path)
+                  if m: return h, m.groups()
+              return None, ()
+
+          start = time.perf_counter()
+          for _ in range(N):
+              for p in paths: regex_resolve(p)
+          regex_ops = round((N*3)/(time.perf_counter()-start))
+
+          print(json.dumps({'radix': radix_ops, 'regex': regex_ops, 'speedup': round(radix_ops/regex_ops, 1)}))
+          " > routing_results.json
+
+      - name: Comment benchmark results on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const bench = JSON.parse(fs.readFileSync('bench_results.json', 'utf8'));
+            const routing = JSON.parse(fs.readFileSync('routing_results.json', 'utf8'));
+
+            // Baseline numbers from README (Python 3.13.7, Apple Silicon)
+            const baseline = {
+              health:     { fasterapi: 335612, fastapi: 49005, speedup: 6.85 },
+              users_get:  { fasterapi: 282835, fastapi: 32391, speedup: 8.73 },
+              users_post: { fasterapi: 193225, fastapi: 27031, speedup: 7.15 },
+              routing:    { radix: 1104318, speedup: 7.6 },
+            };
+
+            function delta(current, base) {
+              const pct = ((current - base) / base * 100).toFixed(1);
+              if (pct > 2) return `🟢 +${pct}%`;
+              if (pct < -5) return `🔴 ${pct}%`;
+              return `⚪ ${pct}%`;
+            }
+
+            const body = `## Benchmark Results
+
+            > Automated benchmark on \`ubuntu-latest\`, Python 3.13. Baseline is from README (Apple Silicon).
+            > CI runners are slower than local machines — **compare the speedup ratio, not raw req/s.**
+
+            ### Framework-Level (Direct ASGI, ${(50000).toLocaleString()} requests)
+
+            | Endpoint | FasterAPI | FastAPI | Speedup | vs Baseline Speedup |
+            |---|---|---|---|---|
+            | \`GET /health\` | **${bench.health.fasterapi.toLocaleString()}/s** | ${bench.health.fastapi.toLocaleString()}/s | **${bench.health.speedup}x** | ${delta(bench.health.speedup, baseline.health.speedup)} |
+            | \`GET /users/{id}\` | **${bench.users_get.fasterapi.toLocaleString()}/s** | ${bench.users_get.fastapi.toLocaleString()}/s | **${bench.users_get.speedup}x** | ${delta(bench.users_get.speedup, baseline.users_get.speedup)} |
+            | \`POST /users\` | **${bench.users_post.fasterapi.toLocaleString()}/s** | ${bench.users_post.fastapi.toLocaleString()}/s | **${bench.users_post.speedup}x** | ${delta(bench.users_post.speedup, baseline.users_post.speedup)} |
+
+            ### Routing (100 routes, 1.5M lookups)
+
+            | Router | Ops/s | Speedup | vs Baseline |
+            |---|---|---|---|
+            | **Radix tree** | **${routing.radix.toLocaleString()}** | **${routing.speedup}x** | ${delta(routing.speedup, baseline.routing.speedup)} |
+            | Regex | ${routing.regex.toLocaleString()} | 1.0x | |
+
+            <details>
+            <summary>How to read this</summary>
+
+            - **Speedup** = FasterAPI req/s ÷ FastAPI req/s (higher is better)
+            - **vs Baseline** compares the speedup ratio against the README baseline
+            - 🟢 = improved, ⚪ = within noise, 🔴 = regression (>5% drop in speedup)
+            - Raw req/s will differ from README (CI runner vs Apple Silicon) — the ratio is what matters
+
+            </details>`;
+
+            // Find existing benchmark comment to update instead of creating duplicates
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c => c.body.includes('## Benchmark Results'));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }

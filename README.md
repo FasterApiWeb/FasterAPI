@@ -1,9 +1,12 @@
 # FasterAPI
 
 [![PyPI version](https://img.shields.io/pypi/v/faster-api-web.svg)](https://pypi.org/project/faster-api-web/)
-[![CI](https://github.com/EshwarCVS/FasterAPI/actions/workflows/ci.yml/badge.svg)](https://github.com/EshwarCVS/FasterAPI/actions)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![CI](https://github.com/EshwarCVS/FasterAPI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/EshwarCVS/FasterAPI/actions/workflows/ci.yml)
+[![Benchmark](https://github.com/EshwarCVS/FasterAPI/actions/workflows/benchmark.yml/badge.svg)](https://github.com/EshwarCVS/FasterAPI/actions/workflows/benchmark.yml)
+[![codecov](https://codecov.io/gh/EshwarCVS/FasterAPI/branch/master/graph/badge.svg)](https://codecov.io/gh/EshwarCVS/FasterAPI)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://ghcr.io/eshwarcvs/fasterapi)
 
 **FasterAPI** is a high-performance ASGI web framework for Python,
 written for **Python 3.13** first and with graceful fallbacks to 3.12,
@@ -704,6 +707,50 @@ Incoming Request
 
 ---
 
+## Contributing
+
+We use a **three-tier branch model** to keep `master` stable:
+
+```
+dev/your-feature ──PR──▶ stage ──PR──▶ master ──tag──▶ release
+```
+
+| Branch | Purpose | Direct push |
+|---|---|---|
+| `master` | Production releases | **Nobody** — PR from `stage` only |
+| `stage` | Integration & QA | Maintainer only |
+| `dev/*` | Your feature/fix | You |
+
+### Flow in Practice
+
+**As a contributor:**
+```bash
+git checkout stage && git pull origin stage
+git checkout -b dev/my-feature
+# ... make changes ...
+git push -u origin dev/my-feature
+# Open PR → stage
+```
+
+CI automatically runs **tests on Python 3.10–3.13** and **benchmarks** on every PR.
+The benchmark bot comments with a comparison table — 🟢 improved, ⚪ neutral, 🔴 regression.
+
+After approval → merge to `stage`.
+
+**As the maintainer (release cycle):**
+```bash
+# Open PR: stage → master
+# CI + benchmarks run again
+# Merge → tag on master:
+git checkout master && git pull
+git tag v0.x.0 && git push origin v0.x.0
+# Release workflow auto-publishes to PyPI + Docker + GitHub Releases
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
+
+---
+
 ## Roadmap
 
 ### v0.2.0 — Production Hardening
@@ -731,7 +778,7 @@ Incoming Request
 - [ ] Full test coverage (>95%)
 - [ ] Production deployment guides (Docker, K8s, systemd)
 - [ ] Migration tool (`fasterapi migrate-from-fastapi`)
-- [ ] Performance regression CI (automated benchmarks on every PR)
+- [x] Performance regression CI (automated benchmarks on every PR)
 
 ---
 
