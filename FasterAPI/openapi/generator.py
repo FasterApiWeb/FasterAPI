@@ -20,7 +20,8 @@ def generate_openapi(
 ) -> dict[str, Any]:
     """Generate an OpenAPI 3.0.3 spec dict from a Faster app instance."""
     if hasattr(app, "_openapi_cache") and app._openapi_cache is not None:
-        return app._openapi_cache
+        result: dict[str, Any] = app._openapi_cache
+        return result
 
     schemas: dict[str, Any] = {}
     paths: dict[str, Any] = {}
@@ -308,7 +309,7 @@ def _python_type_to_schema(
 
     # dict / Dict[K, V]
     if origin is dict:
-        schema: dict[str, Any] = {"type": "object"}
+        schema = {"type": "object"}
         if args and len(args) == 2:
             schema["additionalProperties"] = _python_type_to_schema(args[1], schemas)
         return schema

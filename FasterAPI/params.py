@@ -6,6 +6,8 @@ _MISSING = object()
 
 
 class Path:
+    """Declare a path parameter with optional default and description."""
+
     __slots__ = ("default", "description")
 
     def __init__(self, default: Any = _MISSING, *, description: str = "") -> None:
@@ -19,6 +21,8 @@ class Path:
 
 
 class Query:
+    """Declare a query parameter with optional default, description, and alias."""
+
     __slots__ = ("default", "description", "alias")
 
     def __init__(
@@ -37,6 +41,8 @@ class Query:
 
 
 class Body:
+    """Declare a request body parameter with optional default and embed mode."""
+
     __slots__ = ("default", "description", "embed")
 
     def __init__(
@@ -57,6 +63,8 @@ class Body:
 
 
 class Header:
+    """Declare a header parameter with optional default and alias."""
+
     __slots__ = ("default", "alias", "convert_underscores")
 
     def __init__(
@@ -75,6 +83,8 @@ class Header:
 
 
 class Cookie:
+    """Declare a cookie parameter with an optional default value."""
+
     __slots__ = ("default",)
 
     def __init__(self, default: Any = None) -> None:
@@ -85,6 +95,8 @@ class Cookie:
 
 
 class File:
+    """Declare a file upload parameter."""
+
     __slots__ = ("description",)
 
     def __init__(self, *, description: str = "") -> None:
@@ -95,6 +107,8 @@ class File:
 
 
 class Form:
+    """Declare a form field parameter with an optional default value."""
+
     __slots__ = ("default", "description")
 
     def __init__(self, default: Any = _MISSING, *, description: str = "") -> None:

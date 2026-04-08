@@ -3,6 +3,7 @@
 from . import status
 from .app import Faster
 from .background import BackgroundTask, BackgroundTasks
+from .concurrency import SubInterpreterPool, run_in_subinterpreter
 from .datastructures import FormData, UploadFile
 from .dependencies import Depends
 from .exceptions import HTTPException, RequestValidationError
@@ -57,11 +58,13 @@ __all__ = [
     "RequestValidationError",
     "Response",
     "StreamingResponse",
+    "SubInterpreterPool",
     "TestClient",
     "TrustedHostMiddleware",
     "UploadFile",
     "WebSocket",
     "WebSocketDisconnect",
     "WebSocketState",
+    "run_in_subinterpreter",
     "status",
 ]

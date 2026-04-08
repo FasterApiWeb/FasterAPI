@@ -15,6 +15,8 @@ from .request import Request
 
 
 class Depends:
+    """Declare a dependency to be resolved and injected into a route handler."""
+
     __slots__ = ("dependency", "use_cache")
 
     def __init__(self, dependency: Callable, *, use_cache: bool = True) -> None:

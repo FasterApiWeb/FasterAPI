@@ -4,8 +4,8 @@ import asyncio
 from typing import Any, Callable, Sequence
 
 import msgspec.json
-import uvloop
 
+from .concurrency import install_event_loop
 from .dependencies import _resolve_handler
 from .exceptions import (
     HTTPException,
@@ -20,10 +20,12 @@ from .response import HTMLResponse, JSONResponse, Response
 from .router import RadixRouter
 from .websocket import WebSocket
 
-uvloop.install()
+_event_loop = install_event_loop()
 
 
 class Faster:
+    """The main FasterAPI application class, implementing the ASGI interface."""
+
     def __init__(
         self,
         *,
@@ -212,7 +214,8 @@ class Faster:
         result = handler(request, exc)
         if asyncio.iscoroutine(result):
             result = await result
-        return result
+        ret: tuple[int, bytes, list[tuple[bytes, bytes]]] = result
+        return ret
 
     async def _send_response(
         self, send: Callable, status_code: int, body: Any,
@@ -315,6 +318,7 @@ class Faster:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a GET route to the application."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "GET", path, handler,
@@ -335,6 +339,7 @@ class Faster:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a POST route to the application."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "POST", path, handler,
@@ -355,6 +360,7 @@ class Faster:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a PUT route to the application."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "PUT", path, handler,
@@ -375,6 +381,7 @@ class Faster:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a DELETE route to the application."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "DELETE", path, handler,
@@ -395,6 +402,7 @@ class Faster:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a PATCH route to the application."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "PATCH", path, handler,
@@ -408,6 +416,7 @@ class Faster:
     # --- WebSocket decorator ---
 
     def websocket(self, path: str) -> Callable:
+        """Add a WebSocket route to the application."""
         def decorator(handler: Callable) -> Callable:
             self._ws_routes[path.rstrip("/") or "/"] = handler
             return handler
@@ -416,21 +425,25 @@ class Faster:
     # --- Lifecycle hooks ---
 
     def on_startup(self, handler: Callable) -> Callable:
+        """Register a handler to run on application startup."""
         self.startup_handlers.append(handler)
         return handler
 
     def on_shutdown(self, handler: Callable) -> Callable:
+        """Register a handler to run on application shutdown."""
         self.shutdown_handlers.append(handler)
         return handler
 
     # --- Middleware ---
 
     def add_middleware(self, middleware_class: type, **kwargs: Any) -> None:
+        """Add a middleware class to the application."""
         self.middleware.append({"class": middleware_class, "kwargs": kwargs})
 
     # --- Exception handlers ---
 
     def add_exception_handler(self, exc_class: type, handler: Callable) -> None:
+        """Register a custom exception handler for the given exception class."""
         self.exception_handlers[exc_class] = handler
 
     # --- Router inclusion ---
@@ -442,6 +455,7 @@ class Faster:
         prefix: str = "",
         tags: Sequence[str] = (),
     ) -> None:
+        """Include routes from a FasterRouter, optionally under a path prefix."""
         prefix = prefix.rstrip("/")
         for route in router.routes:
             merged = dict(route)
