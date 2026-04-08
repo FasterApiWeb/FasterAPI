@@ -1,6 +1,6 @@
 # FasterAPI
 
-[![PyPI version](https://img.shields.io/pypi/v/faster-api.svg)](https://pypi.org/project/faster-api/)
+[![PyPI version](https://img.shields.io/pypi/v/faster-api-web.svg)](https://pypi.org/project/faster-api-web/)
 [![CI](https://github.com/EshwarCVS/FasterAPI/actions/workflows/ci.yml/badge.svg)](https://github.com/EshwarCVS/FasterAPI/actions)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -61,13 +61,13 @@ identical developer-facing API:
 ## Installation
 
 ```bash
-pip install faster-api
+pip install faster-api-web
 ```
 
 For maximum performance (includes uvloop):
 
 ```bash
-pip install faster-api[all]
+pip install faster-api-web[all]
 ```
 
 Or install from source:
@@ -505,7 +505,7 @@ These APIs work exactly the same way -- no changes needed:
 
 ### Step-by-step migration
 
-1. `pip install faster-api`
+1. `pip install faster-api-web`
 2. Replace imports: `FastAPI` -> `Faster`, `APIRouter` -> `FasterRouter`
 3. Replace models: `class Foo(BaseModel):` -> `class Foo(msgspec.Struct):`, add `import msgspec`
 4. Update return values: Pydantic `.dict()` / `.model_dump()` -> `msgspec.to_builtins(obj)` or return fields directly

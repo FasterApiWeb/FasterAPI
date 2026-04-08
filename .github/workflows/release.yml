@@ -113,7 +113,7 @@ jobs:
             **A high-performance ASGI web framework — drop-in FastAPI replacement.**
 
             ```bash
-            pip install faster-api
+            pip install faster-api-web
             ```
 
             ---
@@ -152,6 +152,6 @@ jobs:
             ## Install
 
             ```bash
-            pip install faster-api        # core
-            pip install faster-api[all]   # + uvloop
+            pip install faster-api-web        # core
+            pip install faster-api-web[all]   # + uvloop
             ```
