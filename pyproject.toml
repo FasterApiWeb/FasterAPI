@@ -64,4 +64,4 @@ check_untyped_defs = true
 ignore_missing_imports = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["faster"]
+packages = ["FasterAPI"]

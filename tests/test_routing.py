@@ -1,4 +1,4 @@
-from faster.router import RadixRouter, FasterRouter
+from FasterAPI.router import RadixRouter, FasterRouter
 
 
 # --- Helpers ---

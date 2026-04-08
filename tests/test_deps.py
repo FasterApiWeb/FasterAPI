@@ -3,10 +3,10 @@ import asyncio
 import msgspec
 import pytest
 
-from faster.dependencies import Depends, _resolve_handler
-from faster.exceptions import HTTPException, RequestValidationError
-from faster.params import Body, Cookie, Header, Path, Query
-from faster.request import Request
+from FasterAPI.dependencies import Depends, _resolve_handler
+from FasterAPI.exceptions import HTTPException, RequestValidationError
+from FasterAPI.params import Body, Cookie, Header, Path, Query
+from FasterAPI.request import Request
 
 
 # --------------- helpers ---------------

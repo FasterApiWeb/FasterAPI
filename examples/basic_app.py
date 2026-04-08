@@ -11,7 +11,7 @@ Then visit:
 
 import msgspec
 
-from faster import Faster, Path, Query
+from FasterAPI import Faster, Path, Query
 
 app = Faster(title="Basic App", version="1.0.0", description="A minimal FasterAPI example")
 
