@@ -2,7 +2,7 @@
 
 import time
 
-from FasterAPI.router import RadixRouter
+from faster.router import RadixRouter
 
 
 class TestRouterPerformance:

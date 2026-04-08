@@ -3,8 +3,8 @@ import asyncio
 import msgspec
 import pytest
 
-from FasterAPI.app import Faster
-from FasterAPI.websocket import WebSocket, WebSocketDisconnect, WebSocketState
+from faster.app import Faster
+from faster.websocket import WebSocket, WebSocketDisconnect, WebSocketState
 
 
 # --------------- helpers ---------------

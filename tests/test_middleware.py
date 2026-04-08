@@ -3,8 +3,8 @@ import gzip
 import msgspec
 import pytest
 
-from FasterAPI.app import Faster
-from FasterAPI.middleware import (
+from faster.app import Faster
+from faster.middleware import (
     CORSMiddleware,
     GZipMiddleware,
     HTTPSRedirectMiddleware,
