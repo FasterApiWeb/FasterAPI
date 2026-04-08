@@ -9,6 +9,7 @@ build/
 .eggs/
 *.whl
 .venv/
+.venv*/
 venv/
 env/
 .env
