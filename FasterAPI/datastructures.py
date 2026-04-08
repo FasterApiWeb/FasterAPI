@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import tempfile
-from typing import Any, BinaryIO
+from typing import IO, Any
 
 
 class UploadFile:
@@ -16,31 +16,36 @@ class UploadFile:
         self,
         filename: str,
         content_type: str = "application/octet-stream",
-        file: BinaryIO | None = None,
+        file: IO[bytes] | None = None,
         headers: dict[str, str] | None = None,
     ) -> None:
         self.filename = filename
         self.content_type = content_type
-        self.file: BinaryIO = file or tempfile.SpooledTemporaryFile(
+        self.file: IO[bytes] = file or tempfile.SpooledTemporaryFile(
             max_size=1024 * 1024,  # 1 MB
         )
         self.headers = headers or {}
         self._size: int | None = None
 
     async def read(self, size: int = -1) -> bytes:
+        """Read up to ``size`` bytes from the file (-1 means read all)."""
         return self.file.read(size)
 
     async def write(self, data: bytes) -> int:
+        """Write data to the file and return the number of bytes written."""
         return self.file.write(data)
 
     async def seek(self, offset: int) -> None:
+        """Seek to the given byte offset in the file."""
         self.file.seek(offset)
 
     async def close(self) -> None:
+        """Close the underlying file."""
         self.file.close()
 
     @property
     def size(self) -> int | None:
+        """Return the file size in bytes, or None if unknown."""
         return self._size
 
     def __repr__(self) -> str:

@@ -4,6 +4,8 @@ from typing import Any, Callable
 
 
 class RadixNode:
+    """A single node in the radix tree used for URL routing."""
+
     __slots__ = ("children", "handlers", "param_name", "is_param", "is_wildcard")
 
     def __init__(self) -> None:
@@ -15,6 +17,8 @@ class RadixNode:
 
 
 class RadixRouter:
+    """High-performance URL router using a radix tree for route matching."""
+
     def __init__(self) -> None:
         self.root = RadixNode()
 
@@ -25,6 +29,7 @@ class RadixRouter:
         handler: Callable,
         metadata: dict[str, Any] | None = None,
     ) -> None:
+        """Register a route handler for the given HTTP method and path pattern."""
         path = path.rstrip("/") or "/"
         segments = self._split(path)
         node = self.root
@@ -48,6 +53,7 @@ class RadixRouter:
     def resolve(
         self, method: str, path: str
     ) -> tuple[Callable, dict[str, str], dict[str, Any]] | None:
+        """Resolve a path to its handler, extracted path params, and metadata."""
         path = path.rstrip("/") or "/"
         segments = self._split(path)
         params: dict[str, str] = {}
@@ -87,11 +93,13 @@ class RadixRouter:
         # Try param match
         if "*" in node.children:
             param_node = node.children["*"]
-            params[param_node.param_name] = segment
+            name = param_node.param_name
+            assert name is not None
+            params[name] = segment
             result = self._search(param_node, segments, index + 1, params)
             if result is not None:
                 return result
-            del params[param_node.param_name]
+            del params[name]
 
         return None
 
@@ -101,6 +109,8 @@ class RadixRouter:
 
 
 class FasterRouter:
+    """API router for grouping routes with a common prefix and tags."""
+
     def __init__(self, prefix: str = "", tags: list[str] | None = None) -> None:
         self.prefix = prefix.rstrip("/")
         self.tags: list[str] = tags or []
@@ -140,6 +150,7 @@ class FasterRouter:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a GET route to the router."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "GET", path, handler,
@@ -160,6 +171,7 @@ class FasterRouter:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a POST route to the router."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "POST", path, handler,
@@ -180,6 +192,7 @@ class FasterRouter:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a PUT route to the router."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "PUT", path, handler,
@@ -200,6 +213,7 @@ class FasterRouter:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a DELETE route to the router."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "DELETE", path, handler,
@@ -220,6 +234,7 @@ class FasterRouter:
         status_code: int = 200,
         deprecated: bool = False,
     ) -> Callable:
+        """Add a PATCH route to the router."""
         def decorator(handler: Callable) -> Callable:
             self._add_route(
                 "PATCH", path, handler,

@@ -11,6 +11,8 @@ from .datastructures import FormData, UploadFile
 
 
 class Request:
+    """Represents an incoming HTTP request."""
+
     __slots__ = (
         "_scope", "_receive", "_body", "_body_read", "_form_cache",
         "method", "path", "headers", "path_params", "query_params",
@@ -35,7 +37,7 @@ class Request:
 
         qs = scope.get("query_string", b"").decode("latin-1")
         parsed = parse_qs(qs, keep_blank_values=True)
-        self.query_params: dict[str, str] = {
+        self.query_params: dict[str, Any] = {
             k: v[0] if len(v) == 1 else v
             for k, v in parsed.items()
         }
@@ -57,13 +59,16 @@ class Request:
 
     @property
     def body(self) -> bytes:
+        """Return the already-read request body bytes."""
         return self._body
 
     async def json(self) -> Any:
+        """Read the request body and parse it as JSON."""
         raw = await self._read_body()
         return msgspec.json.decode(raw)
 
     async def form(self) -> FormData:
+        """Read the request body and parse it as form data."""
         if self._form_cache is not None:
             return self._form_cache
 
@@ -80,6 +85,7 @@ class Request:
 
     @property
     def client(self) -> tuple[str, int] | None:
+        """Return the client's (host, port) tuple, or None if unavailable."""
         client = self._scope.get("client")
         if client is None:
             return None
@@ -87,6 +93,7 @@ class Request:
 
     @property
     def cookies(self) -> dict[str, str]:
+        """Parse and return cookies from the request headers."""
         cookie_header = self.headers.get("cookie", "")
         if not cookie_header:
             return {}
@@ -96,6 +103,7 @@ class Request:
 
     @property
     def content_type(self) -> str | None:
+        """Return the Content-Type header value, or None if not set."""
         return self.headers.get("content-type")
 
 
@@ -184,7 +192,7 @@ def _parse_multipart(raw: bytes, content_type: str) -> FormData:
         "on_part_end": on_part_end,
     }
 
-    parser = MultipartParser(boundary, callbacks)
+    parser = MultipartParser(boundary, callbacks)  # type: ignore[arg-type]
     parser.write(raw)
     parser.finalize()
 
