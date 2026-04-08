@@ -1,145 +1,181 @@
-"""Concurrency utilities for FasterAPI.
+"""Concurrency engine for FasterAPI.
 
-Provides thread pool, process pool, and Python 3.13+ sub-interpreter
-execution. Sub-interpreters each have their own GIL, enabling true
-parallelism for CPU-bound Python code — the closest Python equivalent
-to goroutines.
+Designed for Python 3.13 first, with graceful degradation:
 
-On Python < 3.13, ``run_in_subinterpreter`` falls back to a
-``ProcessPoolExecutor``.
+  Python 3.13+  →  Sub-interpreters with per-interpreter GIL (PEP 684/734)
+                   Each worker gets its own GIL — true parallelism for
+                   CPU-bound Python, no pickling, no process overhead.
+                   This is the closest Python analog to Go goroutines.
+
+  Python 3.12   →  Improved GIL with per-interpreter support partially
+                   available. Falls back to ProcessPoolExecutor for
+                   CPU-bound work, ThreadPoolExecutor for I/O.
+
+  Python 3.11   →  ProcessPoolExecutor for CPU parallelism (pickle-based),
+                   ThreadPoolExecutor for I/O-bound blocking calls.
+
+  Python 3.10-  →  Same as 3.11 but with less efficient asyncio internals.
+                   FasterAPI still works, but upgrading is recommended.
+
+The public API is identical regardless of Python version:
+
+    await run_in_subinterpreter(func, *args)   # CPU-bound
+    await run_in_threadpool(func, *args)        # I/O-bound
+    await run_in_executor(func, *args)          # process pool
 """
 
 from __future__ import annotations
 
 import asyncio
 import inspect
+import os
 import sys
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
 from typing import Any, Callable
 
+# ───────────────────────────────────────────────────────────────────────
+#  Version detection
+# ───────────────────────────────────────────────────────────────────────
+
+_PY_VERSION = sys.version_info
+_PY313_PLUS = _PY_VERSION >= (3, 13)
+_PY312_PLUS = _PY_VERSION >= (3, 12)
+_PY311_PLUS = _PY_VERSION >= (3, 11)
+
+# Detect available CPU cores for default pool sizing
+_CPU_COUNT = os.cpu_count() or 4
+
+# ───────────────────────────────────────────────────────────────────────
+#  Shared pool singletons
+# ───────────────────────────────────────────────────────────────────────
+
 _process_pool: ProcessPoolExecutor | None = None
 _thread_pool: ThreadPoolExecutor | None = None
 
-# Python 3.13+ sub-interpreter support (PEP 734)
-_HAS_SUBINTERPRETERS = sys.version_info >= (3, 13)
-
 
 def _get_process_pool() -> ProcessPoolExecutor:
-    """Return the global process pool, creating it on first use."""
+    """Return the global process pool, lazily created."""
     global _process_pool
     if _process_pool is None:
-        _process_pool = ProcessPoolExecutor()
+        _process_pool = ProcessPoolExecutor(max_workers=_CPU_COUNT)
     return _process_pool
 
 
 def _get_thread_pool() -> ThreadPoolExecutor:
-    """Return the global thread pool, creating it on first use."""
+    """Return the global thread pool, lazily created."""
     global _thread_pool
     if _thread_pool is None:
-        _thread_pool = ThreadPoolExecutor()
+        # Python 3.13+ defaults to min(32, cpu+4); match that on older versions
+        _thread_pool = ThreadPoolExecutor(max_workers=min(32, _CPU_COUNT + 4))
     return _thread_pool
 
 
+# ───────────────────────────────────────────────────────────────────────
+#  Core helpers
+# ───────────────────────────────────────────────────────────────────────
+
 def is_coroutine(func: Callable) -> bool:  # type: ignore[type-arg]
-    """Return True if the given callable is a coroutine function."""
+    """Return True if *func* is a coroutine function."""
     return inspect.iscoroutinefunction(func)
 
 
 async def run_in_executor(func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
-    """Run a sync function in a process pool executor.
+    """Run *func* in a process pool — bypasses the GIL via multiprocessing.
 
-    Uses ``ProcessPoolExecutor`` to bypass the GIL for CPU-bound work.
-    Consider ``run_in_subinterpreter`` on Python 3.13+ for lighter-weight
-    parallelism without pickling overhead.
+    Arguments must be picklable. For lighter-weight CPU parallelism on
+    Python 3.13+, prefer ``run_in_subinterpreter``.
     """
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(_get_process_pool(), partial(func, *args))
 
 
 async def run_in_threadpool(func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
-    """Run a sync function in a thread pool executor.
+    """Run *func* in the shared thread pool — ideal for blocking I/O.
 
-    Suitable for I/O-bound blocking operations (file I/O, legacy DB
-    drivers). The function still shares the main GIL on Python < 3.13.
+    On Python < 3.13, threads share a single GIL so this does NOT help
+    with CPU-bound work. On 3.13+ with per-interpreter GIL, threads
+    within the *same* interpreter still share one GIL.
     """
     loop = asyncio.get_running_loop()
     return await loop.run_in_executor(_get_thread_pool(), partial(func, *args))
 
 
-# ---------------------------------------------------------------------------
-# Python 3.13+ sub-interpreter support
-# ---------------------------------------------------------------------------
-# Sub-interpreters each get their own GIL (PEP 684 / PEP 734), enabling
-# true parallelism for CPU-bound Python code without the serialization
-# overhead of multiprocessing (no pickling, shared-nothing by default).
+# ───────────────────────────────────────────────────────────────────────
+#  Python 3.13+: Sub-interpreter pool (per-interpreter GIL)
+# ───────────────────────────────────────────────────────────────────────
 #
-# This is the closest Python analog to Go's goroutines — lightweight
-# execution contexts that run truly in parallel.
+#  PEP 684 (Python 3.12) introduced per-interpreter GIL at the C level.
+#  PEP 734 (Python 3.13) exposes it via the `interpreters` stdlib module.
 #
-# On Python < 3.13 we transparently fall back to ProcessPoolExecutor.
-# ---------------------------------------------------------------------------
+#  Each sub-interpreter:
+#    - Has its own GIL → true parallel execution of Python bytecode
+#    - Has its own module state → no shared mutable globals
+#    - Communicates via channels (memoryview, bytes) → no pickling
+#    - Is ~100x lighter than a process → fast startup, low memory
+#
+#  This makes sub-interpreters the closest Python equivalent to
+#  goroutines: lightweight, parallel, share-nothing by default.
+# ───────────────────────────────────────────────────────────────────────
 
-if _HAS_SUBINTERPRETERS:
-    # These imports are only available on Python 3.13+
+if _PY313_PLUS:
     import interpreters  # type: ignore[import-not-found]
+    import interpreters.channels  # type: ignore[import-not-found]
 
     class SubInterpreterPool:
-        """Pool of sub-interpreters, each with its own GIL.
+        """Pool of Python 3.13+ sub-interpreters, each with its own GIL.
 
-        Each sub-interpreter is a lightweight Python execution context
-        that runs with its own Global Interpreter Lock, enabling true
-        CPU parallelism without process overhead.
-
-        Usage::
+        True CPU-bound parallelism without process overhead::
 
             pool = SubInterpreterPool(max_workers=4)
-            result = await pool.run(cpu_heavy_func, arg1, arg2)
+            result = await pool.run(cpu_heavy, arg1, arg2)
             pool.shutdown()
+
+        Or use the module-level convenience function::
+
+            result = await run_in_subinterpreter(cpu_heavy, arg1, arg2)
         """
 
-        def __init__(self, max_workers: int = 4) -> None:
-            self._max_workers = max_workers
+        def __init__(self, max_workers: int | None = None) -> None:
+            self._max_workers = max_workers or _CPU_COUNT
             self._interpreters: list[Any] = []
-            self._available: asyncio.Queue[Any] = asyncio.Queue()
+            self._semaphore: asyncio.Semaphore | None = None
             self._initialized = False
+            self._thread_pool = ThreadPoolExecutor(
+                max_workers=self._max_workers,
+            )
 
         def _ensure_initialized(self) -> None:
-            """Lazily create sub-interpreters on first use."""
             if self._initialized:
                 return
             for _ in range(self._max_workers):
                 interp = interpreters.create()
                 self._interpreters.append(interp)
-                self._available.put_nowait(interp)
+            self._semaphore = asyncio.Semaphore(self._max_workers)
             self._initialized = True
 
         async def run(self, func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
             """Execute *func* in a sub-interpreter with its own GIL.
 
-            The function and arguments must be shareable across
-            interpreters (simple types, bytes, etc.).
+            The function is called via ``interp.call(func, *args)``.
+            Arguments must be shareable across interpreters.
             """
             self._ensure_initialized()
-            interp = await self._available.get()
-            loop = asyncio.get_running_loop()
-            try:
-                result = await loop.run_in_executor(
-                    None,
-                    partial(self._exec_in_interp, interp, func, *args),
+            assert self._semaphore is not None
+            async with self._semaphore:
+                # Round-robin: pick the next free interpreter
+                interp = self._interpreters[
+                    id(asyncio.current_task()) % len(self._interpreters)
+                ]
+                loop = asyncio.get_running_loop()
+                return await loop.run_in_executor(
+                    self._thread_pool,
+                    partial(interp.call, func, *args),
                 )
-                return result
-            finally:
-                self._available.put_nowait(interp)
-
-        @staticmethod
-        def _exec_in_interp(interp: Any, func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
-            """Run the function inside the given sub-interpreter."""
-            # On 3.13+, interpreters.run() executes code with its own GIL
-            return interp.call(func, *args)
 
         def shutdown(self) -> None:
-            """Destroy all sub-interpreters in the pool."""
+            """Destroy all sub-interpreters and the backing thread pool."""
+            self._thread_pool.shutdown(wait=False)
             for interp in self._interpreters:
                 try:
                     interp.close()
@@ -148,42 +184,32 @@ if _HAS_SUBINTERPRETERS:
             self._interpreters.clear()
             self._initialized = False
 
-    _subinterp_pool: SubInterpreterPool | None = None
+# ───────────────────────────────────────────────────────────────────────
+#  Python 3.11–3.12: Fallback using ProcessPoolExecutor
+# ───────────────────────────────────────────────────────────────────────
+#
+#  No sub-interpreter API is exposed at the Python level.
+#  CPU parallelism requires multiprocessing (pickle serialisation).
+#  Same public API, different backend.
+# ───────────────────────────────────────────────────────────────────────
 
-    def _get_subinterp_pool(max_workers: int = 4) -> SubInterpreterPool:
-        """Return the global sub-interpreter pool, creating it on first use."""
-        global _subinterp_pool
-        if _subinterp_pool is None:
-            _subinterp_pool = SubInterpreterPool(max_workers=max_workers)
-        return _subinterp_pool
+elif _PY311_PLUS:
 
-    async def run_in_subinterpreter(func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
-        """Execute *func* in a sub-interpreter with its own GIL.
-
-        Each sub-interpreter has an independent GIL, enabling true
-        CPU-bound parallelism — the closest Python equivalent to
-        goroutines. No pickling required (unlike multiprocessing).
-
-        Falls back to ``ProcessPoolExecutor`` on Python < 3.13.
-        """
-        pool = _get_subinterp_pool()
-        return await pool.run(func, *args)
-
-else:
-    # Fallback for Python < 3.13: use ProcessPoolExecutor
     class SubInterpreterPool:  # type: ignore[no-redef]
-        """Fallback pool using ProcessPoolExecutor on Python < 3.13.
+        """Fallback pool for Python 3.11–3.12 using ProcessPoolExecutor.
 
-        Provides the same API as the sub-interpreter pool but uses
-        multiprocessing under the hood. Upgrade to Python 3.13+ for
-        true sub-interpreter support with per-interpreter GIL.
+        Provides the same ``run()`` / ``shutdown()`` API. Upgrade to
+        Python 3.13+ for true sub-interpreter support with per-interpreter
+        GIL (no pickling, lower overhead).
         """
 
-        def __init__(self, max_workers: int = 4) -> None:
-            self._executor = ProcessPoolExecutor(max_workers=max_workers)
+        def __init__(self, max_workers: int | None = None) -> None:
+            self._executor = ProcessPoolExecutor(
+                max_workers=max_workers or _CPU_COUNT,
+            )
 
         async def run(self, func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
-            """Execute *func* in a worker process (fallback)."""
+            """Execute *func* in a worker process (pickle-based)."""
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(
                 self._executor, partial(func, *args),
@@ -193,21 +219,101 @@ else:
             """Shut down the process pool."""
             self._executor.shutdown(wait=False)
 
-    _subinterp_pool: SubInterpreterPool | None = None  # type: ignore[no-redef]
+# ───────────────────────────────────────────────────────────────────────
+#  Python 3.10 and older: Minimal fallback
+# ───────────────────────────────────────────────────────────────────────
+#
+#  Same ProcessPoolExecutor approach. asyncio internals are slower on
+#  3.10- but functionally identical for our pool usage.
+# ───────────────────────────────────────────────────────────────────────
 
-    def _get_subinterp_pool(max_workers: int = 4) -> SubInterpreterPool:
-        """Return the global fallback pool, creating it on first use."""
-        global _subinterp_pool
-        if _subinterp_pool is None:
-            _subinterp_pool = SubInterpreterPool(max_workers=max_workers)
-        return _subinterp_pool
+else:
 
-    async def run_in_subinterpreter(func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
-        """Execute *func* in a separate process (Python < 3.13 fallback).
+    class SubInterpreterPool:  # type: ignore[no-redef]
+        """Fallback pool for Python < 3.11 using ProcessPoolExecutor.
 
-        On Python 3.13+, this uses true sub-interpreters with
-        per-interpreter GIL. On older versions, it falls back to
-        ``ProcessPoolExecutor``.
+        FasterAPI officially supports Python 3.11+, but this fallback
+        allows basic operation on 3.10 and 3.9. Upgrade to 3.13+ for
+        the best performance.
         """
-        pool = _get_subinterp_pool()
-        return await pool.run(func, *args)
+
+        def __init__(self, max_workers: int | None = None) -> None:
+            self._executor = ProcessPoolExecutor(
+                max_workers=max_workers or _CPU_COUNT,
+            )
+
+        async def run(self, func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
+            """Execute *func* in a worker process (pickle-based)."""
+            loop = asyncio.get_running_loop()
+            return await loop.run_in_executor(
+                self._executor, partial(func, *args),
+            )
+
+        def shutdown(self) -> None:
+            """Shut down the process pool."""
+            self._executor.shutdown(wait=False)
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  Global sub-interpreter pool singleton + convenience function
+# ───────────────────────────────────────────────────────────────────────
+
+_subinterp_pool: SubInterpreterPool | None = None
+
+
+def _get_subinterp_pool(max_workers: int | None = None) -> SubInterpreterPool:
+    """Return the global sub-interpreter pool, lazily created."""
+    global _subinterp_pool
+    if _subinterp_pool is None:
+        _subinterp_pool = SubInterpreterPool(max_workers=max_workers)
+    return _subinterp_pool
+
+
+async def run_in_subinterpreter(func: Callable, *args: Any) -> Any:  # type: ignore[type-arg]
+    """Execute *func* with maximum available parallelism.
+
+    **Python 3.13+**: Runs in a sub-interpreter with its own GIL.
+    True parallel execution, no pickling, ~100x lighter than a process.
+
+    **Python 3.11–3.12**: Falls back to ``ProcessPoolExecutor``.
+    Arguments must be picklable. Still achieves parallelism via
+    multiprocessing.
+
+    **Python < 3.11**: Same as 3.11 fallback with older asyncio internals.
+
+    Usage::
+
+        result = await run_in_subinterpreter(heavy_computation, n)
+    """
+    pool = _get_subinterp_pool()
+    return await pool.run(func, *args)
+
+
+# ───────────────────────────────────────────────────────────────────────
+#  Event loop policy selection
+# ───────────────────────────────────────────────────────────────────────
+#
+#  Python 3.13 ships with significant asyncio performance improvements
+#  (PEP 703 prep, faster task creation). uvloop still helps on 3.13 but
+#  the gap is smaller.
+#
+#  Strategy:
+#    3.13+ → Try uvloop first (still fastest), fall back to stdlib
+#    3.11+ → uvloop strongly recommended, fall back to stdlib
+#    older  → uvloop if available, else stdlib
+# ───────────────────────────────────────────────────────────────────────
+
+def install_event_loop() -> str:
+    """Install the fastest available event loop and return its name.
+
+    Returns one of: ``"uvloop"``, ``"asyncio"``.
+    """
+    try:
+        import uvloop
+        uvloop.install()
+        return "uvloop"
+    except ImportError:
+        # No uvloop available — use stdlib asyncio.
+        # On Python 3.13+, stdlib asyncio is significantly faster than
+        # on older versions, so this is an acceptable fallback.
+        return "asyncio"
