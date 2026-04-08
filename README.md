@@ -401,47 +401,65 @@ uvicorn examples.full_crud_app:app --reload
 
 ## Benchmarks
 
-### Routing Micro-Benchmark
+> All benchmarks run on the same machine. Python 3.10, macOS, Apple Silicon.
+> Reproduce with `python benchmarks/compare.py`.
 
-100 routes (50 static + 30 single-param + 20 multi-param), 1,000,000 lookups:
+### Component-Level Benchmarks
 
-| Router | Time (s) | Ops/s | Speedup |
-|---|---|---|---|
-| **Radix tree (FasterAPI)** | **1.40** | **~714,000** | **5.9x** |
-| Regex (traditional) | 8.32 | ~120,000 | 1.0x |
+These isolate FasterAPI's core innovations from network/server overhead:
 
-The radix tree performs O(k) lookups (k = path segment count) regardless
-of route count. Regex routers scan every registered pattern linearly —
-the more routes you have, the wider the gap.
+**Routing — 100 routes, 3M lookups**
+
+| Router | Ops/s | Speedup |
+|---|---|---|
+| **Radix tree (FasterAPI)** | **1,041,883** | **5.9x** |
+| Regex (traditional) | 177,969 | 1.0x |
+
+**JSON Encoding — dict → bytes, 500K iterations**
+
+| Encoder | Ops/s | Speedup |
+|---|---|---|
+| **msgspec.json.encode** | **5,292,751** | **6.9x** |
+| json.dumps + .encode() | 764,337 | 1.0x |
+
+**JSON Decode + Validate — bytes → typed object, 500K iterations**
+
+| Decoder | Ops/s | Speedup |
+|---|---|---|
+| **msgspec.json.decode (typed)** | **3,765,847** | **3.8x** |
+| Pydantic v2 validate_json | 982,403 | 1.0x |
+| json.loads (untyped) | 682,413 | 0.7x |
 
 ### HTTP End-to-End Benchmark
 
-Measured with `httpx.AsyncClient`, 10,000 requests at 100 concurrency.
-Both frameworks under `uvicorn` on the same machine (Python 3.11):
+Measured with `httpx.AsyncClient`, 10,000 requests at 100 concurrency,
+single uvicorn worker. Both frameworks on identical endpoints:
 
-| Endpoint | FasterAPI (req/s) | FastAPI (req/s) | Speedup |
-|---|---|---|---|
-| `GET /health` | **391** | 376 | **1.04x** |
-| `GET /users/{id}` | 393 | 403 | 0.98x |
-| `POST /users` (JSON body) | **408** | 367 | **1.11x** |
+| Endpoint | FasterAPI (req/s) | FastAPI (req/s) | Speedup | p50 (ms) |
+|---|---|---|---|---|
+| `GET /health` | **646** | 628 | **1.03x** | 103 vs 106 |
+| `GET /users/{id}` | **714** | 691 | **1.03x** | 95 vs 98 |
+| `POST /users` (JSON body) | **634** | 568 | **1.12x** | 105 vs 116 |
 
-**Where FasterAPI shines most:**
+**Why the e2e speedup looks smaller than component benchmarks:**
 
-- **JSON serialisation**: POST endpoint shows 1.11x speedup from msgspec's
-  C-based JSON encoder vs Pydantic + stdlib json
-- **Routing-heavy apps**: With 100+ routes, radix tree lookup is 6x faster
-  than regex scanning — this compounds on every single request
-- **Validation-heavy endpoints**: msgspec Struct validation compiles to C
-  code; Pydantic v2 still has a Python validation layer
-- **CPU-bound handlers**: Python 3.13 sub-interpreters enable true
-  parallelism without process overhead
+The httpx-through-uvicorn pipeline measures the full stack — TCP, HTTP
+parsing, ASGI protocol, and serialization combined. Framework overhead is
+only ~10-15% of total request time. The component benchmarks above show
+the raw advantage of each subsystem. As route count and payload
+complexity grow, FasterAPI's advantage compounds:
+
+- **100+ routes**: Radix routing is 5.9x faster per lookup
+- **Large JSON payloads**: msgspec encode is 6.9x faster
+- **Typed validation**: msgspec decode is 3.8x faster than Pydantic v2
+- **CPU-bound work**: Sub-interpreters (3.13+) enable true parallelism
 
 ### Running Benchmarks
 
 ```bash
-# HTTP head-to-head (requires: pip install fastapi pydantic)
+# Full HTTP comparison (requires: pip install fastapi pydantic)
 python benchmarks/compare.py
-python benchmarks/compare.py --requests 5000 --concurrency 50
+python benchmarks/compare.py --requests 20000 --concurrency 200
 ```
 
 ---
@@ -706,42 +724,6 @@ Incoming Request
 - [ ] Production deployment guides (Docker, K8s, systemd)
 - [ ] Migration tool (`fasterapi migrate-from-fastapi`)
 - [ ] Performance regression CI (automated benchmarks on every PR)
-
----
-
-## Next Steps for Contributors & Adoption
-
-### Getting Stars & Users
-
-1. **Post on Hacker News / Reddit r/Python** — Show benchmark results side-by-side with FastAPI. Python performance content consistently reaches the front page.
-
-2. **Write a "Why I Built This" blog post** — Explain the five innovations with before/after benchmarks. Post on dev.to and Medium.
-
-3. **Create a migration guide video** — 5-minute YouTube video showing a FastAPI app migrated to FasterAPI in real-time. Demonstrate the import changes and benchmark improvement.
-
-4. **Publish to PyPI** — `pip install faster-api` lowers the barrier to trying it. Include a one-liner in the README.
-
-5. **Add "good first issue" labels** — Tag issues for new contributors: documentation, type hints, test coverage, new middleware. This drives community engagement.
-
-6. **Benchmark against Fiber (Go)** — Create a fair comparison showing FasterAPI closing the gap. Python developers are curious how close they can get to Go performance without leaving the ecosystem.
-
-7. **Conference talk** — Submit to PyCon, EuroPython, or local meetups. Title: "2-5x Faster Than FastAPI — How We Did It Without Leaving Python".
-
-8. **Discord / GitHub Discussions** — Create a community space. Active communities drive adoption more than features.
-
-### Making It a Contributing Project
-
-1. **CONTRIBUTING.md** — Clear guide with: setup instructions, coding style, PR process, how to run benchmarks.
-
-2. **Issue templates** — Bug report, feature request, performance regression.
-
-3. **CI badges** — Tests, coverage, PyPI version, Python versions, downloads.
-
-4. **Architecture docs** — Explain the radix tree, DI compiler, middleware chain. Contributors need to understand the "why" before the "how".
-
-5. **Plugin system** — Allow third-party middleware and extensions (`fasterapi-cors`, `fasterapi-jwt`). This creates an ecosystem.
-
-6. **Benchmarking CI** — Run `benchmarks/compare.py` on every PR and post results as a comment. Prevents performance regressions.
 
 ---
 
