@@ -7,8 +7,8 @@ on:
 
 permissions:
   contents: write
-  id-token: write   # Required for PyPI trusted publishing (OIDC)
-  packages: write   # Required for GitHub Packages
+  id-token: write
+  packages: write
 
 jobs:
   # ── Step 1: Run tests before releasing ──────────────────────────────
@@ -65,34 +65,39 @@ jobs:
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
-  # ── Step 4: Publish to GitHub Packages ──────────────────────────────
-  publish-ghpackages:
-    needs: build
+  # ── Step 4: Publish Docker image to GitHub Packages (ghcr.io) ──────
+  publish-docker:
+    needs: test
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       packages: write
     steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
         with:
-          python-version: "3.13"
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Publish to GitHub Packages
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          pip install twine
-          twine upload --repository-url https://ghcr.io/v2/${{ github.repository_owner }} dist/* || true
+      - name: Extract version from tag
+        id: version
+        run: echo "tag=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/fasterapi:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ github.repository_owner }}/fasterapi:latest
 
   # ── Step 5: Create GitHub Release with artifacts ────────────────────
   github-release:
-    needs: [publish-pypi, publish-ghpackages]
+    needs: [build, publish-pypi, publish-docker]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -154,4 +159,10 @@ jobs:
             ```bash
             pip install faster-api-web        # core
             pip install faster-api-web[all]   # + uvloop
+            ```
+
+            ## Docker
+
+            ```bash
+            docker pull ghcr.io/eshwarcvs/fasterapi:latest
             ```
