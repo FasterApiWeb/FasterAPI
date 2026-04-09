@@ -10,13 +10,14 @@ Key optimisations:
 from __future__ import annotations
 
 from http.cookies import SimpleCookie
-from typing import Any
+from typing import Any, cast
 from urllib.parse import parse_qs
 
 import msgspec.json
-from python_multipart.multipart import parse_options_header, MultipartParser
+from python_multipart.multipart import MultipartParser, parse_options_header
 
 from .datastructures import FormData, UploadFile
+from .types import ASGIApp
 
 __all__ = ["Request"]
 
@@ -25,12 +26,20 @@ class Request:
     """Represents an incoming HTTP request with lazy attribute parsing."""
 
     __slots__ = (
-        "_scope", "_receive", "_body", "_body_read", "_form_cache",
-        "_headers", "_query_params", "_cookies",
-        "method", "path", "path_params",
+        "_scope",
+        "_receive",
+        "_body",
+        "_body_read",
+        "_form_cache",
+        "_headers",
+        "_query_params",
+        "_cookies",
+        "method",
+        "path",
+        "path_params",
     )
 
-    def __init__(self, scope: dict, receive: Any) -> None:
+    def __init__(self, scope: dict[str, Any], receive: ASGIApp) -> None:
         self._scope = scope
         self._receive = receive
         self._body: bytes = b""
@@ -136,6 +145,7 @@ class Request:
 #  Form parsing helpers
 # ------------------------------------------------------------------
 
+
 def _parse_urlencoded(raw: bytes) -> FormData:
     text = raw.decode("latin-1")
     parsed = parse_qs(text, keep_blank_values=True)
@@ -168,9 +178,7 @@ def _parse_multipart(raw: bytes, content_type: str) -> FormData:
         header_value.extend(data[start:end])
 
     def on_header_end() -> None:
-        current_headers[bytes(header_field).decode("latin-1").lower()] = (
-            bytes(header_value).decode("latin-1")
-        )
+        current_headers[bytes(header_field).decode("latin-1").lower()] = bytes(header_value).decode("latin-1")
         header_field.clear()
         header_value.clear()
 
@@ -182,7 +190,8 @@ def _parse_multipart(raw: bytes, content_type: str) -> FormData:
         if filename is not None:
             part_info["filename"] = filename.decode("utf-8")
             part_info["content_type"] = current_headers.get(
-                "content-type", "application/octet-stream",
+                "content-type",
+                "application/octet-stream",
             )
         part_info["headers"] = dict(current_headers)
 
@@ -207,15 +216,21 @@ def _parse_multipart(raw: bytes, content_type: str) -> FormData:
         else:
             fields[name] = bytes(current_data).decode("utf-8")
 
-    parser = MultipartParser(boundary, {
-        "on_part_begin": on_part_begin,
-        "on_header_field": on_header_field,
-        "on_header_value": on_header_value,
-        "on_header_end": on_header_end,
-        "on_headers_finished": on_headers_finished,
-        "on_part_data": on_part_data,
-        "on_part_end": on_part_end,
-    })  # type: ignore[arg-type]
+    parser = MultipartParser(
+        boundary,
+        cast(
+            Any,
+            {
+                "on_part_begin": on_part_begin,
+                "on_header_field": on_header_field,
+                "on_header_value": on_header_value,
+                "on_header_end": on_header_end,
+                "on_headers_finished": on_headers_finished,
+                "on_part_data": on_part_data,
+                "on_part_end": on_part_end,
+            },
+        ),
+    )
     parser.write(raw)
     parser.finalize()
     return FormData(fields)

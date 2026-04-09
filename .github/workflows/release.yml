@@ -2,6 +2,8 @@ name: Release
 
 on:
   push:
+    branches:
+      - master
     tags:
       - "v*"
 
@@ -11,8 +13,48 @@ permissions:
   packages: write
 
 jobs:
+  # ── Publish dev builds to TestPyPI on every master merge ─────────────
+  # (Real PyPI publishes remain tag-based: push tag vX.Y.Z on master.)
+  publish-testpypi:
+    if: startsWith(github.ref, 'refs/heads/master')
+    runs-on: ubuntu-latest
+    environment: testpypi
+    permissions:
+      contents: read
+    steps:
+      - name: Verify TestPyPI token is configured
+        run: |
+          if [ -z "${{ secrets.TEST_PYPI_API_TOKEN }}" ]; then
+            echo "::error::Missing secret TEST_PYPI_API_TOKEN (Settings → Secrets and variables → Actions)."
+            echo "Create an API token on TestPyPI for the `faster-api-web` project and add it as TEST_PYPI_API_TOKEN."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install build tools
+        run: pip install build
+
+      - name: Build wheel and sdist
+        run: python -m build
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          skip-existing: true
+
   # ── Gate: only release from master ──────────────────────────────────
   check-branch:
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,6 +72,7 @@ jobs:
   # ── Step 1: Run tests ──────────────────────────────────────────────
   test:
     needs: check-branch
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -37,18 +80,23 @@ jobs:
         python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
-      - run: pytest --cov=FasterAPI --cov-report=term-missing
+      - run: pytest --cov=FasterAPI --cov-report=term-missing --cov-fail-under=85
 
   # ── Step 2: Build wheel + sdist ────────────────────────────────────
   build:
     needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -69,6 +117,7 @@ jobs:
   # ── Step 3: Publish to PyPI via trusted publishing (OIDC) ──────────
   publish-pypi:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
@@ -82,10 +131,13 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
   # ── Step 4: Publish Docker image to GitHub Packages (ghcr.io) ──────
   publish-docker:
     needs: test
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -108,18 +160,23 @@ jobs:
         id: owner
         run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
+      - name: Normalize repo name to lowercase
+        id: repo
+        run: echo "repo_lc=${GITHUB_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]' | awk '{print "repo_lc="$0}' >> "$GITHUB_OUTPUT"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ steps.owner.outputs.owner_lc }}/fasterapi:${{ steps.version.outputs.tag }}
-            ghcr.io/${{ steps.owner.outputs.owner_lc }}/fasterapi:latest
+            ghcr.io/${{ steps.owner.outputs.owner_lc }}/${{ steps.repo.outputs.repo_lc }}:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ steps.owner.outputs.owner_lc }}/${{ steps.repo.outputs.repo_lc }}:latest
 
   # ── Step 5: Create GitHub Release with artifacts ───────────────────
   github-release:
     needs: [build, publish-pypi, publish-docker]
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write

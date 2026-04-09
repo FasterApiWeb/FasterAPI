@@ -4,10 +4,12 @@ import inspect
 import re
 import types
 import typing
-from typing import Any, Callable, Union, get_args, get_origin
+from collections.abc import Callable
+from typing import Any, Union, get_args, get_origin
 
 import msgspec
 
+from .._version import get_version
 from ..params import Body, Cookie, Header, Path, Query
 
 
@@ -15,10 +17,12 @@ def generate_openapi(
     app: Any,
     *,
     title: str = "FasterAPI",
-    version: str = "0.1.1",
+    version: str | None = None,
     description: str = "",
 ) -> dict[str, Any]:
     """Generate an OpenAPI 3.0.3 spec dict from a Faster app instance."""
+    if version is None:
+        version = get_version()
     if hasattr(app, "_openapi_cache") and app._openapi_cache is not None:
         result: dict[str, Any] = app._openapi_cache
         return result
@@ -56,7 +60,7 @@ def generate_openapi(
 
 def _build_operation(
     route: dict[str, Any],
-    handler: Callable,
+    handler: Callable[..., Any],
     schemas: dict[str, Any],
 ) -> dict[str, Any]:
     operation: dict[str, Any] = {}
@@ -141,7 +145,7 @@ def _build_operation(
 
 def _extract_params(
     route: dict[str, Any],
-    handler: Callable,
+    handler: Callable[..., Any],
     schemas: dict[str, Any],
 ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
     parameters: list[dict[str, Any]] = []
@@ -169,11 +173,13 @@ def _extract_params(
 
         # Skip Request injection
         from ..request import Request as RequestClass
+
         if annotation is RequestClass:
             continue
 
         # Skip Depends
         from ..dependencies import Depends
+
         if isinstance(default, Depends):
             continue
 
@@ -208,9 +214,7 @@ def _extract_params(
 
         # Header parameter
         if isinstance(default, Header):
-            header_name = default.alias or (
-                name.replace("_", "-") if default.convert_underscores else name
-            )
+            header_name = default.alias or (name.replace("_", "-") if default.convert_underscores else name)
             p = {
                 "name": header_name,
                 "in": "header",
@@ -264,7 +268,8 @@ def _is_optional(annotation: Any) -> bool:
 
 
 def _annotation_to_schema(
-    annotation: Any, schemas: dict[str, Any] | None = None,
+    annotation: Any,
+    schemas: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if annotation is inspect.Parameter.empty or annotation is Any:
         return {"type": "string"}
@@ -272,7 +277,8 @@ def _annotation_to_schema(
 
 
 def _python_type_to_schema(
-    tp: Any, schemas: dict[str, Any] | None = None,
+    tp: Any,
+    schemas: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if tp is str:
         return {"type": "string"}
@@ -318,7 +324,8 @@ def _python_type_to_schema(
 
 
 def _type_to_schema(
-    tp: Any, schemas: dict[str, Any],
+    tp: Any,
+    schemas: dict[str, Any],
 ) -> dict[str, Any]:
     if tp is None or tp is inspect.Parameter.empty:
         return {"type": "string"}
@@ -330,7 +337,8 @@ def _type_to_schema(
 
 
 def _struct_to_ref(
-    struct_type: type, schemas: dict[str, Any],
+    struct_type: type,
+    schemas: dict[str, Any],
 ) -> dict[str, Any]:
     name = struct_type.__name__
 
@@ -341,7 +349,8 @@ def _struct_to_ref(
 
 
 def _struct_to_schema(
-    struct_type: type, schemas: dict[str, Any],
+    struct_type: type,
+    schemas: dict[str, Any],
 ) -> dict[str, Any]:
     properties: dict[str, Any] = {}
     required: list[str] = []

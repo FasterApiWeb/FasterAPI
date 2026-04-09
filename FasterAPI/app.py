@@ -10,10 +10,12 @@ Optimisations over a naïve implementation:
 from __future__ import annotations
 
 import asyncio
-from typing import Any, Callable, Sequence
+from collections.abc import Callable, Sequence
+from typing import Any, cast
 
 import msgspec.json
 
+from ._version import get_version
 from .concurrency import install_event_loop
 from .dependencies import _resolve_handler, compile_handler
 from .exceptions import (
@@ -25,8 +27,9 @@ from .exceptions import (
 from .openapi.generator import generate_openapi
 from .openapi.ui import redoc_html, swagger_ui_html
 from .request import Request
-from .response import HTMLResponse, JSONResponse, Response
+from .response import HTMLResponse, JSONResponse
 from .router import RadixRouter
+from .types import ASGIApp
 from .websocket import WebSocket
 
 __all__ = ["Faster"]
@@ -45,38 +48,48 @@ class Faster:
     """The main FasterAPI application class, implementing the ASGI interface."""
 
     __slots__ = (
-        "title", "version", "description",
-        "openapi_url", "docs_url", "redoc_url",
-        "routes", "startup_handlers", "shutdown_handlers",
-        "middleware", "exception_handlers",
-        "_router", "_openapi_cache", "_middleware_app", "_ws_routes",
+        "title",
+        "version",
+        "description",
+        "openapi_url",
+        "docs_url",
+        "redoc_url",
+        "routes",
+        "startup_handlers",
+        "shutdown_handlers",
+        "middleware",
+        "exception_handlers",
+        "_router",
+        "_openapi_cache",
+        "_middleware_app",
+        "_ws_routes",
     )
 
     def __init__(
         self,
         *,
         title: str = "FasterAPI",
-        version: str = "0.1.1",
+        version: str | None = None,
         description: str = "",
         openapi_url: str | None = "/openapi.json",
         docs_url: str | None = "/docs",
         redoc_url: str | None = "/redoc",
     ) -> None:
         self.title = title
-        self.version = version
+        self.version = version if version is not None else get_version()
         self.description = description
         self.openapi_url = openapi_url
         self.docs_url = docs_url
         self.redoc_url = redoc_url
         self.routes: list[dict[str, Any]] = []
-        self.startup_handlers: list[Callable] = []
-        self.shutdown_handlers: list[Callable] = []
+        self.startup_handlers: list[ASGIApp] = []
+        self.shutdown_handlers: list[ASGIApp] = []
         self.middleware: list[dict[str, Any]] = []
-        self.exception_handlers: dict[type, Callable] = {}
+        self.exception_handlers: dict[type, ASGIApp] = {}
         self._router = RadixRouter()
         self._openapi_cache: dict[str, Any] | None = None
-        self._middleware_app: Callable | None = None
-        self._ws_routes: dict[str, Callable] = {}
+        self._middleware_app: ASGIApp | None = None
+        self._ws_routes: dict[str, ASGIApp] = {}
         self._setup_openapi_routes()
 
     def __repr__(self) -> str:
@@ -93,15 +106,22 @@ class Faster:
 
             async def openapi_schema() -> JSONResponse:
                 spec = generate_openapi(
-                    app_ref, title=app_ref.title,
-                    version=app_ref.version, description=app_ref.description,
+                    app_ref,
+                    title=app_ref.title,
+                    version=app_ref.version,
+                    description=app_ref.description,
                 )
                 return JSONResponse(spec)
 
             self._add_route(
-                "GET", api_url, openapi_schema,
-                tags=["openapi"], summary="OpenAPI Schema",
-                response_model=None, status_code=200, deprecated=False,
+                "GET",
+                api_url,
+                openapi_schema,
+                tags=["openapi"],
+                summary="OpenAPI Schema",
+                response_model=None,
+                status_code=200,
+                deprecated=False,
             )
 
         if self.docs_url is not None and self.openapi_url is not None:
@@ -111,9 +131,14 @@ class Faster:
                 return HTMLResponse(swagger_ui_html(ourl, title=f"{t} - Swagger UI"))
 
             self._add_route(
-                "GET", self.docs_url, swagger_docs,
-                tags=["openapi"], summary="Swagger UI",
-                response_model=None, status_code=200, deprecated=False,
+                "GET",
+                self.docs_url,
+                swagger_docs,
+                tags=["openapi"],
+                summary="Swagger UI",
+                response_model=None,
+                status_code=200,
+                deprecated=False,
             )
 
         if self.redoc_url is not None and self.openapi_url is not None:
@@ -123,16 +148,26 @@ class Faster:
                 return HTMLResponse(redoc_html(ourl, title=f"{t} - ReDoc"))
 
             self._add_route(
-                "GET", self.redoc_url, redoc_docs,
-                tags=["openapi"], summary="ReDoc",
-                response_model=None, status_code=200, deprecated=False,
+                "GET",
+                self.redoc_url,
+                redoc_docs,
+                tags=["openapi"],
+                summary="ReDoc",
+                response_model=None,
+                status_code=200,
+                deprecated=False,
             )
 
     # ------------------------------------------------------------------
     #  ASGI interface
     # ------------------------------------------------------------------
 
-    async def __call__(self, scope: dict, receive: Callable, send: Callable) -> None:
+    async def __call__(
+        self,
+        scope: dict[str, Any],
+        receive: ASGIApp,
+        send: ASGIApp,
+    ) -> None:
         if self.middleware:
             if self._middleware_app is None:
                 self._middleware_app = self._build_middleware_chain()
@@ -140,7 +175,12 @@ class Faster:
         else:
             await self._asgi_app(scope, receive, send)
 
-    async def _asgi_app(self, scope: dict, receive: Callable, send: Callable) -> None:
+    async def _asgi_app(
+        self,
+        scope: dict[str, Any],
+        receive: ASGIApp,
+        send: ASGIApp,
+    ) -> None:
         scope_type = scope["type"]
         if scope_type == "http":
             await self._handle_http(scope, receive, send)
@@ -149,7 +189,7 @@ class Faster:
         elif scope_type == "lifespan":
             await self._handle_lifespan(scope, receive, send)
 
-    def _build_middleware_chain(self) -> Callable:
+    def _build_middleware_chain(self) -> ASGIApp:
         app = self._asgi_app
         for entry in reversed(self.middleware):
             app = entry["class"](app, **entry["kwargs"])
@@ -159,7 +199,12 @@ class Faster:
     #  HTTP dispatch — hot path
     # ------------------------------------------------------------------
 
-    async def _handle_http(self, scope: dict, receive: Callable, send: Callable) -> None:
+    async def _handle_http(
+        self,
+        scope: dict[str, Any],
+        receive: ASGIApp,
+        send: ASGIApp,
+    ) -> None:
         result = self._router.resolve(scope["method"], scope["path"])
         if result is None:
             await _send_error(send, 404, "Not Found")
@@ -174,14 +219,18 @@ class Faster:
             response, bg_tasks = await _resolve_handler(handler, request, path_params)
         except RequestValidationError as exc:
             status, body, headers = await self._handle_exc(
-                request, exc, RequestValidationError,
+                request,
+                exc,
+                RequestValidationError,
                 _default_validation_exception_handler,
             )
             await _send_raw(send, status, body, headers)
             return
         except HTTPException as exc:
             status, body, headers = await self._handle_exc(
-                request, exc, HTTPException,
+                request,
+                exc,
+                HTTPException,
                 _default_http_exception_handler,
             )
             await _send_raw(send, status, body, headers)
@@ -203,21 +252,27 @@ class Faster:
             await bg_tasks.run()
 
     async def _handle_exc(
-        self, request: Request, exc: Exception, exc_class: type,
-        default_handler: Callable,
+        self,
+        request: Request,
+        exc: Exception,
+        exc_class: type,
+        default_handler: ASGIApp,
     ) -> tuple[int, bytes, list[tuple[bytes, bytes]]]:
         handler = self.exception_handlers.get(exc_class, default_handler)
         result = handler(request, exc)
         if asyncio.iscoroutine(result):
             result = await result
-        return result  # type: ignore[return-value]
+        return cast(tuple[int, bytes, list[tuple[bytes, bytes]]], result)
 
     # ------------------------------------------------------------------
     #  WebSocket dispatch
     # ------------------------------------------------------------------
 
     async def _handle_websocket(
-        self, scope: dict, receive: Callable, send: Callable,
+        self,
+        scope: dict[str, Any],
+        receive: ASGIApp,
+        send: ASGIApp,
     ) -> None:
         path = scope.get("path", "/")
         handler = self._ws_routes.get(path.rstrip("/") or "/")
@@ -232,7 +287,10 @@ class Faster:
     # ------------------------------------------------------------------
 
     async def _handle_lifespan(
-        self, scope: dict, receive: Callable, send: Callable,
+        self,
+        scope: dict[str, Any],
+        receive: ASGIApp,
+        send: ASGIApp,
     ) -> None:
         while True:
             message = await receive()
@@ -262,23 +320,34 @@ class Faster:
     # ------------------------------------------------------------------
 
     def _add_route(
-        self, method: str, path: str, handler: Callable, *,
-        tags: list[str], summary: str, response_model: Any,
-        status_code: int, deprecated: bool,
+        self,
+        method: str,
+        path: str,
+        handler: ASGIApp,
+        *,
+        tags: list[str],
+        summary: str,
+        response_model: Any,
+        status_code: int,
+        deprecated: bool,
     ) -> None:
         metadata = {
-            "tags": tags, "summary": summary,
+            "tags": tags,
+            "summary": summary,
             "response_model": response_model,
-            "status_code": status_code, "deprecated": deprecated,
+            "status_code": status_code,
+            "deprecated": deprecated,
         }
         self.routes.append({"method": method, "path": path, "handler": handler, **metadata})
         self._router.add_route(method, path, handler, metadata)
         compile_handler(handler)  # pre-compile at registration time
 
-    def _route_decorator(self, method: str, path: str, **kw: Any) -> Callable:
-        def decorator(handler: Callable) -> Callable:
+    def _route_decorator(self, method: str, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
+        def decorator(handler: ASGIApp) -> ASGIApp:
             self._add_route(
-                method, path, handler,
+                method,
+                path,
+                handler,
                 tags=kw.get("tags") or [],
                 summary=kw.get("summary", ""),
                 response_model=kw.get("response_model"),
@@ -286,38 +355,40 @@ class Faster:
                 deprecated=kw.get("deprecated", False),
             )
             return handler
+
         return decorator
 
-    def get(self, path: str, **kw: Any) -> Callable:
+    def get(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
         return self._route_decorator("GET", path, **kw)
 
-    def post(self, path: str, **kw: Any) -> Callable:
+    def post(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
         return self._route_decorator("POST", path, **kw)
 
-    def put(self, path: str, **kw: Any) -> Callable:
+    def put(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
         return self._route_decorator("PUT", path, **kw)
 
-    def delete(self, path: str, **kw: Any) -> Callable:
+    def delete(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
         return self._route_decorator("DELETE", path, **kw)
 
-    def patch(self, path: str, **kw: Any) -> Callable:
+    def patch(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
         return self._route_decorator("PATCH", path, **kw)
 
-    def websocket(self, path: str) -> Callable:
-        def decorator(handler: Callable) -> Callable:
+    def websocket(self, path: str) -> Callable[[ASGIApp], ASGIApp]:
+        def decorator(handler: ASGIApp) -> ASGIApp:
             self._ws_routes[path.rstrip("/") or "/"] = handler
             return handler
+
         return decorator
 
     # ------------------------------------------------------------------
     #  Lifecycle hooks
     # ------------------------------------------------------------------
 
-    def on_startup(self, handler: Callable) -> Callable:
+    def on_startup(self, handler: ASGIApp) -> ASGIApp:
         self.startup_handlers.append(handler)
         return handler
 
-    def on_shutdown(self, handler: Callable) -> Callable:
+    def on_shutdown(self, handler: ASGIApp) -> ASGIApp:
         self.shutdown_handlers.append(handler)
         return handler
 
@@ -329,7 +400,7 @@ class Faster:
         self.middleware.append({"class": middleware_class, "kwargs": kwargs})
         self._middleware_app = None  # invalidate cached chain
 
-    def add_exception_handler(self, exc_class: type, handler: Callable) -> None:
+    def add_exception_handler(self, exc_class: type, handler: ASGIApp) -> None:
         self.exception_handlers[exc_class] = handler
 
     # ------------------------------------------------------------------
@@ -337,7 +408,11 @@ class Faster:
     # ------------------------------------------------------------------
 
     def include_router(
-        self, router: Any, *, prefix: str = "", tags: Sequence[str] = (),
+        self,
+        router: Any,
+        *,
+        prefix: str = "",
+        tags: Sequence[str] = (),
     ) -> None:
         pfx = prefix.rstrip("/")
         for route in router.routes:
@@ -354,7 +429,8 @@ class Faster:
 #  Module-level send helpers (avoid method lookup on self)
 # ------------------------------------------------------------------
 
-async def _send_response(send: Callable, status_code: int, body: Any) -> None:
+
+async def _send_response(send: ASGIApp, status_code: int, body: Any) -> None:
     if hasattr(body, "to_asgi"):
         await body.to_asgi(send)
         return
@@ -374,13 +450,16 @@ async def _send_response(send: Callable, status_code: int, body: Any) -> None:
 
 
 async def _send_raw(
-    send: Callable, status: int, body: bytes, headers: list[tuple[bytes, bytes]],
+    send: ASGIApp,
+    status: int,
+    body: bytes,
+    headers: list[tuple[bytes, bytes]],
 ) -> None:
     await send({"type": "http.response.start", "status": status, "headers": headers})
     await send({"type": "http.response.body", "body": body})
 
 
-async def _send_error(send: Callable, status: int, message: str) -> None:
+async def _send_error(send: ASGIApp, status: int, message: str) -> None:
     body = msgspec.json.encode({"detail": message})
     await send({"type": "http.response.start", "status": status, "headers": [(_HEADER_CT, _CT_JSON)]})
     await send({"type": "http.response.body", "body": body})

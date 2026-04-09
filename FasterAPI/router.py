@@ -9,7 +9,10 @@ Key design choices for speed:
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
+
+from .types import ASGIApp
 
 __all__ = ["RadixRouter", "FasterRouter"]
 
@@ -21,7 +24,7 @@ class RadixNode:
 
     def __init__(self) -> None:
         self.children: dict[str, RadixNode] = {}
-        self.handlers: dict[str, tuple[Callable, dict[str, Any]]] = {}
+        self.handlers: dict[str, tuple[ASGIApp, dict[str, Any]]] = {}
         self.param_name: str | None = None
         self.is_param: bool = False
 
@@ -42,7 +45,7 @@ class RadixRouter:
         self,
         method: str,
         path: str,
-        handler: Callable,
+        handler: ASGIApp,
         metadata: dict[str, Any] | None = None,
     ) -> None:
         """Register a handler for the given HTTP method and path pattern."""
@@ -71,8 +74,10 @@ class RadixRouter:
     # ------------------------------------------------------------------
 
     def resolve(
-        self, method: str, path: str,
-    ) -> tuple[Callable, dict[str, str], dict[str, Any]] | None:
+        self,
+        method: str,
+        path: str,
+    ) -> tuple[ASGIApp, dict[str, str], dict[str, Any]] | None:
         """Resolve a path to (handler, path_params, metadata) or None."""
         segments = _split(path)
         params: dict[str, str] = {}
@@ -107,7 +112,8 @@ class RadixRouter:
             # Try param child
             param_child = node.children.get("*")
             if param_child is not None:
-                params[param_child.param_name] = seg  # type: ignore[index]
+                assert param_child.param_name is not None
+                params[param_child.param_name] = seg
                 node = param_child
                 idx += 1
                 continue
@@ -120,6 +126,7 @@ class RadixRouter:
 #  Shared helpers
 # ------------------------------------------------------------------
 
+
 def _split(path: str) -> list[str]:
     """Split a URL path into non-empty segments, stripping trailing slashes."""
     return [s for s in path.split("/") if s]
@@ -128,6 +135,7 @@ def _split(path: str) -> list[str]:
 # ------------------------------------------------------------------
 #  FasterRouter (sub-router / blueprint)
 # ------------------------------------------------------------------
+
 
 class FasterRouter:
     """API router for grouping routes with a common prefix and tags."""
@@ -143,7 +151,7 @@ class FasterRouter:
         self,
         method: str,
         path: str,
-        handler: Callable,
+        handler: ASGIApp,
         *,
         tags: list[str],
         summary: str,
@@ -152,47 +160,54 @@ class FasterRouter:
         deprecated: bool,
     ) -> None:
         full_path = self.prefix + path
-        self.routes.append({
-            "method": method,
-            "path": full_path,
-            "handler": handler,
-            "tags": self.tags + tags,
-            "summary": summary,
-            "response_model": response_model,
-            "status_code": status_code,
-            "deprecated": deprecated,
-        })
+        self.routes.append(
+            {
+                "method": method,
+                "path": full_path,
+                "handler": handler,
+                "tags": self.tags + tags,
+                "summary": summary,
+                "response_model": response_model,
+                "status_code": status_code,
+                "deprecated": deprecated,
+            }
+        )
 
     # Decorator factories — identical API to Faster app
 
-    def get(self, path: str, **kw: Any) -> Callable:
-        def decorator(handler: Callable) -> Callable:
+    def get(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
+        def decorator(handler: ASGIApp) -> ASGIApp:
             self._add_route("GET", path, handler, **_route_kw(kw))
             return handler
+
         return decorator
 
-    def post(self, path: str, **kw: Any) -> Callable:
-        def decorator(handler: Callable) -> Callable:
+    def post(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
+        def decorator(handler: ASGIApp) -> ASGIApp:
             self._add_route("POST", path, handler, **_route_kw(kw))
             return handler
+
         return decorator
 
-    def put(self, path: str, **kw: Any) -> Callable:
-        def decorator(handler: Callable) -> Callable:
+    def put(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
+        def decorator(handler: ASGIApp) -> ASGIApp:
             self._add_route("PUT", path, handler, **_route_kw(kw))
             return handler
+
         return decorator
 
-    def delete(self, path: str, **kw: Any) -> Callable:
-        def decorator(handler: Callable) -> Callable:
+    def delete(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
+        def decorator(handler: ASGIApp) -> ASGIApp:
             self._add_route("DELETE", path, handler, **_route_kw(kw))
             return handler
+
         return decorator
 
-    def patch(self, path: str, **kw: Any) -> Callable:
-        def decorator(handler: Callable) -> Callable:
+    def patch(self, path: str, **kw: Any) -> Callable[[ASGIApp], ASGIApp]:
+        def decorator(handler: ASGIApp) -> ASGIApp:
             self._add_route("PATCH", path, handler, **_route_kw(kw))
             return handler
+
         return decorator
 
 

@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+title: "faster-api-web (FasterAPI)"
+message: "If you use this software, please cite it using these metadata."
+type: software
+authors:
+  - family-names: Thedla
+    given-names: Eshwar Chandra Vidhyasagar
+    email: "thedla.ecvs@gmail.com"
+    affiliation: "GitHub: EshwarCVS"
+repository-code: "https://github.com/FasterApiWeb/FasterAPI"
+url: "https://pypi.org/project/faster-api-web/"
+abstract: >-
+  High-performance ASGI web framework for Python. PyPI package name: faster-api-web.
+  Documentation assumes Python 3.13; older releases (3.10–3.12) are supported with documented fallbacks.
+license: MIT
+keywords:
+  - "asgi"
+  - "web"
+  - "api"
+  - "fastapi"
+  - "msgspec"

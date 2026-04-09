@@ -10,8 +10,9 @@ from __future__ import annotations
 
 import inspect
 import typing
+from collections.abc import Callable
 from functools import lru_cache
-from typing import Any, Callable
+from typing import Any
 
 import msgspec
 
@@ -19,7 +20,7 @@ from .background import BackgroundTasks
 from .concurrency import is_coroutine
 from .datastructures import UploadFile
 from .exceptions import RequestValidationError
-from .params import Body, Cookie, File, Form, Header, Path, Query, _MISSING
+from .params import _MISSING, Body, Cookie, File, Form, Header, Path, Query
 from .request import Request
 
 __all__ = ["Depends", "compile_handler", "_resolve_handler"]
@@ -28,12 +29,13 @@ __all__ = ["Depends", "compile_handler", "_resolve_handler"]
 #  Depends marker
 # ---------------------------------------------------------------------------
 
+
 class Depends:
     """Declare a dependency to be resolved and injected into a route handler."""
 
     __slots__ = ("dependency", "use_cache")
 
-    def __init__(self, dependency: Callable, *, use_cache: bool = True) -> None:
+    def __init__(self, dependency: Callable[..., Any], *, use_cache: bool = True) -> None:
         self.dependency = dependency
         self.use_cache = use_cache
 
@@ -65,7 +67,12 @@ class _ParamSpec:
     __slots__ = ("name", "kind", "annotation", "default", "marker")
 
     def __init__(
-        self, name: str, kind: int, annotation: Any, default: Any, marker: Any,
+        self,
+        name: str,
+        kind: int,
+        annotation: Any,
+        default: Any,
+        marker: Any,
     ) -> None:
         self.name = name
         self.kind = kind
@@ -78,8 +85,9 @@ class _ParamSpec:
 #  Compile handler (called once at route registration)
 # ---------------------------------------------------------------------------
 
+
 @lru_cache(maxsize=512)
-def compile_handler(func: Callable) -> tuple[tuple[_ParamSpec, ...], bool]:
+def compile_handler(func: Callable[..., Any]) -> tuple[tuple[_ParamSpec, ...], bool]:
     """Introspect *func* once and return a tuple of _ParamSpec plus is-async flag.
 
     This replaces per-request inspect.signature + get_type_hints calls.
@@ -127,14 +135,15 @@ def compile_handler(func: Callable) -> tuple[tuple[_ParamSpec, ...], bool]:
 #  Hot-path resolver (called on every request)
 # ---------------------------------------------------------------------------
 
+
 async def _resolve_handler(
-    handler: Callable,
+    handler: Callable[..., Any],
     request: Request,
     path_params: dict[str, str],
 ) -> tuple[Any, BackgroundTasks | None]:
     """Resolve dependencies, call handler, return (result, bg_tasks|None)."""
     specs, is_async = compile_handler(handler)
-    cache: dict[Callable, Any] = {}
+    cache: dict[Callable[..., Any], Any] = {}
     bg_tasks = BackgroundTasks()
     kwargs = await _resolve_from_specs(specs, request, path_params, cache, bg_tasks)
 
@@ -146,7 +155,7 @@ async def _resolve_from_specs(
     specs: tuple[_ParamSpec, ...],
     request: Request,
     path_params: dict[str, str],
-    cache: dict[Callable, Any],
+    cache: dict[Callable[..., Any], Any],
     bg_tasks: BackgroundTasks,
 ) -> dict[str, Any]:
     """Build kwargs dict from pre-compiled param specs — no introspection."""
@@ -161,11 +170,17 @@ async def _resolve_from_specs(
             kwargs[spec.name] = bg_tasks
         elif kind == _KIND_DEPENDS:
             kwargs[spec.name] = await _resolve_dependency(
-                spec.marker, request, path_params, cache, bg_tasks,
+                spec.marker,
+                request,
+                path_params,
+                cache,
+                bg_tasks,
             )
         elif kind == _KIND_STRUCT:
             kwargs[spec.name] = await _resolve_struct(
-                spec.annotation, request, spec.default,
+                spec.annotation,
+                request,
+                spec.default,
             )
         elif kind == _KIND_PATH:
             kwargs[spec.name] = _resolve_path(spec.name, path_params, spec.marker)
@@ -179,7 +194,9 @@ async def _resolve_from_specs(
             kwargs[spec.name] = await _resolve_file(spec.name, request)
         elif kind == _KIND_FORM:
             kwargs[spec.name] = await _resolve_form_field(
-                spec.name, request, spec.marker,
+                spec.name,
+                request,
+                spec.marker,
             )
         elif kind == _KIND_BODY:
             kwargs[spec.name] = await _resolve_body(request, spec.marker)
@@ -196,11 +213,12 @@ async def _resolve_from_specs(
 #  Dependency resolution
 # ---------------------------------------------------------------------------
 
+
 async def _resolve_dependency(
     dep: Depends,
     request: Request,
     path_params: dict[str, str],
-    cache: dict[Callable, Any],
+    cache: dict[Callable[..., Any], Any],
     bg_tasks: BackgroundTasks,
 ) -> Any:
     func = dep.dependency
@@ -220,6 +238,7 @@ async def _resolve_dependency(
 #  Individual param resolvers (kept lean)
 # ---------------------------------------------------------------------------
 
+
 def _is_struct_type(annotation: Any) -> bool:
     return (
         annotation is not inspect.Parameter.empty
@@ -237,7 +256,9 @@ def _is_upload_file_type(annotation: Any) -> bool:
 
 
 async def _resolve_struct(
-    struct_type: type, request: Request, default: Any,
+    struct_type: type,
+    request: Request,
+    default: Any,
 ) -> Any:
     try:
         raw = await request._read_body()

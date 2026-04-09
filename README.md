@@ -1,12 +1,33 @@
 # FasterAPI
 
-[![PyPI version](https://img.shields.io/pypi/v/faster-api-web.svg)](https://pypi.org/project/faster-api-web/)
-[![CI](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml)
-[![Benchmark](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml/badge.svg)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml)
+[![PyPI version](https://img.shields.io/pypi/v/faster-api-web.svg?logo=pypi&logoColor=white)](https://pypi.org/project/faster-api-web/)
+[![GitHub release](https://img.shields.io/github/v/release/FasterApiWeb/FasterAPI?include_prereleases&sort=semver&logo=github&label=release)](https://github.com/FasterApiWeb/FasterAPI/releases)
+[![PyPI - Python](https://img.shields.io/pypi/pyversions/faster-api-web.svg)](https://pypi.org/project/faster-api-web/)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/faster-api-web.svg)](https://pypi.org/project/faster-api-web/)
+[![CI](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Benchmark](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml/badge.svg?branch=master)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml?query=branch%3Amaster)
+[![Docs workflow](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/docs.yml/badge.svg?branch=master)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/docs.yml?query=branch%3Amaster)
+[![Docs site live](https://img.shields.io/website?url=https%3A%2F%2Ffasterapiweb.github.io%2FFasterAPI%2F&up_message=online&down_message=offline&label=docs%20site)](https://fasterapiweb.github.io/FasterAPI/)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-5c6bc0?logo=githubpages)](https://fasterapiweb.github.io/FasterAPI/)
 [![codecov](https://codecov.io/gh/FasterApiWeb/FasterAPI/branch/master/graph/badge.svg)](https://codecov.io/gh/FasterApiWeb/FasterAPI)
-[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![License: MIT](https://img.shields.io/github/license/FasterApiWeb/FasterAPI)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://ghcr.io/fasterapiweb/fasterapi)
+[![TestPyPI](https://img.shields.io/badge/TestPyPI-faster--api--web-informational)](https://test.pypi.org/project/faster-api-web/)
+[![Hatch build](https://img.shields.io/badge/packaging-hatch-3775A9?logo=python)](https://github.com/pypa/hatch)
+[![GitHub contributors](https://img.shields.io/github/contributors/FasterApiWeb/FasterAPI)](https://github.com/FasterApiWeb/FasterAPI/graphs/contributors)
+[![GitHub last commit](https://img.shields.io/github/last-commit/FasterApiWeb/FasterAPI/master)](https://github.com/FasterApiWeb/FasterAPI/commits/master)
+[![uvloop](https://img.shields.io/badge/uvloop-supported-2ea44f)](https://github.com/MagicStack/uvloop)
+[![msgspec](https://img.shields.io/badge/msgspec-models-blue)](https://jcristharif.com/msgspec/)
+[![ASGI](https://img.shields.io/badge/ASGI-3.0-lightgrey)](https://asgi.readthedocs.io/en/latest/)
+[![GitHub stars](https://img.shields.io/github/stars/FasterApiWeb/FasterAPI?style=social)](https://github.com/FasterApiWeb/FasterAPI)
+
+---
+
+**Documentation:** [fasterapiweb.github.io/FasterAPI](https://fasterapiweb.github.io/FasterAPI/) (Python **3.13** first; see [Python 3.13 & compatibility](https://fasterapiweb.github.io/FasterAPI/python-313/))  
+**Source code:** [github.com/FasterApiWeb/FasterAPI](https://github.com/FasterApiWeb/FasterAPI)  
+**PyPI package:** [`faster-api-web`](https://pypi.org/project/faster-api-web/) — `pip install faster-api-web`
+
+---
 
 **FasterAPI** is a high-performance ASGI web framework for Python,
 written for **Python 3.13** first and with graceful fallbacks to 3.12,
@@ -19,6 +40,31 @@ default event loop (optional on 3.13+), and **Python 3.13
 sub-interpreters** for true CPU-bound parallelism.
 
 If you already know FastAPI, you already know FasterAPI.
+
+---
+
+## Acknowledgments
+
+**FastAPI** ([github.com/fastapi/fastapi](https://github.com/fastapi/fastapi)) showed what a modern Python API framework can be. **Sebastián Ramírez** ([@tiangolo](https://github.com/tiangolo)), creator of FastAPI, inspired this project. FasterAPI is independent software with different internals; it is not affiliated with the FastAPI team.
+
+Full credit and links: [Acknowledgments](https://fasterapiweb.github.io/FasterAPI/acknowledgments/) in the docs.
+
+---
+
+## Cite this repository
+
+**Author:** Eshwar Chandra Vidhyasagar Thedla · **GitHub:** [@EshwarCVS](https://github.com/EshwarCVS) · **Repository:** [FasterApiWeb/FasterAPI](https://github.com/FasterApiWeb/FasterAPI)
+
+GitHub shows a **Cite this repository** button when [`CITATION.cff`](CITATION.cff) is on the default branch. You can also use:
+
+```bibtex
+@software{faster_api_web,
+  author = {Thedla, Eshwar Chandra Vidhyasagar},
+  title = {faster-api-web (FasterAPI): high-performance ASGI web framework for Python},
+  url = {https://github.com/FasterApiWeb/FasterAPI},
+  year = {2026},
+}
+```
 
 ---
 
@@ -57,7 +103,7 @@ identical developer-facing API:
 | **Middleware** | CORS, GZip, TrustedHost, HTTPS | CORS, GZip, TrustedHost, HTTPS |
 | **Background tasks** | Built-in `BackgroundTasks` | Built-in `BackgroundTasks` |
 | **Test client** | Built-in `TestClient` (httpx) | Via Starlette `TestClient` |
-| **Python version** | 3.13 first, 3.11+ supported | 3.8+ |
+| **Python version** | 3.13 first, 3.10+ supported | 3.8+ |
 
 ---
 
@@ -83,23 +129,45 @@ pip install -e ".[dev]"
 
 ### Requirements
 
+**FasterAPI stands on the shoulders of these libraries** (see also [FastAPI’s “Requirements” idea](https://github.com/fastapi/fastapi#requirements)):
+
+- **[msgspec](https://jcristharif.com/msgspec/)** — structs, validation, and JSON encoding.
+- **[uvicorn](https://www.uvicorn.org/)** `[standard]` — ASGI server (pulled in by this package).
+- **[python-multipart](https://github.com/Kludex/python-multipart)** — forms and uploads.
+- Optional: **[uvloop](https://github.com/MagicStack/uvloop)** via `faster-api-web[all]` for lower event-loop overhead on Linux.
+
+**Python:**
+
 - **Python 3.13** (recommended) — full sub-interpreter support, faster asyncio
 - **Python 3.12** — partial per-interpreter GIL support, ProcessPool fallback
-- **Python 3.11** — minimum supported version, ProcessPool fallback
-- **uvloop** — optional; auto-detected at startup. If not installed,
-  stdlib asyncio is used (fast enough on 3.13+)
-- **msgspec** — required; used for validation & JSON encoding
-- **uvicorn** — required; ASGI server
-- **python-multipart** — required; for file uploads and form data
+- **Python 3.10** — minimum supported version, ProcessPool fallback
 
 ### Python Version Compatibility
 
-| Feature | 3.13+ | 3.12 | 3.11 |
+| Feature | 3.13+ | 3.12 | 3.10–3.11 |
 |---|---|---|---|
 | Sub-interpreters (own GIL) | Native | ProcessPool fallback | ProcessPool fallback |
 | asyncio performance | Excellent (PEP 703 prep) | Good | Good |
 | uvloop benefit | Optional (~10-15% faster) | Recommended (~2-3x faster) | Recommended (~2-3x faster) |
-| Type syntax (`X \| Y`) | Native | Native | Via `__future__` |
+| Type syntax (`X \| Y`) | Native | Native | Via `__future__` on 3.10 |
+
+---
+
+## Documentation
+
+Tutorials and reference are published from the `docs/` folder with **MkDocs** — same topics as in this README, with **Python 3.13** as the primary target and a dedicated **[compatibility](https://fasterapiweb.github.io/FasterAPI/python-313/)** page for 3.10–3.12.
+
+The live site is deployed by the **[Docs workflow](.github/workflows/docs.yml)** to **GitHub Pages**. In the repository **Settings → Pages → Build and deployment**, the **source must be “GitHub Actions”** (not the legacy `gh-pages` branch); otherwise the published URL can 404 even when the workflow succeeds.
+
+---
+
+## Releases and PyPI versions
+
+The **PyPI** package name is **`faster-api-web`**. Published versions are tied to **git tags** on
+`master` (`v0.1.2`, …): pushing a tag runs the [Release workflow](.github/workflows/release.yml),
+which builds the wheel/sdist (version comes from the tag via **hatch-vcs**), publishes to **PyPI**,
+and creates a GitHub Release. **You do not bump a hardcoded version in `pyproject.toml` for releases**
+— tag the commit you want to ship.
 
 ---
 
@@ -644,31 +712,6 @@ FasterAPI/
 
 ---
 
-## Contributing
-
-Contributions are welcome.
-
-```bash
-# Clone and install
-git clone https://github.com/FasterApiWeb/FasterAPI.git
-cd FasterAPI
-pip install -e ".[dev]"
-
-# Run tests
-pytest
-
-# Type check
-mypy FasterAPI/
-
-# Run benchmarks
-python benchmarks/compare.py
-```
-
-Please ensure all tests pass and mypy reports no errors before submitting
-a pull request.
-
----
-
 ## Performance Innovations
 
 FasterAPI achieves its speed through five key architectural decisions:
@@ -676,7 +719,7 @@ FasterAPI achieves its speed through five key architectural decisions:
 | Innovation | What It Does | Speedup Source |
 |---|---|---|
 | **uvloop** | Replaces stdlib asyncio with libuv-backed C event loop | 2-4x faster I/O scheduling |
-| **msgspec** | Rust-backed JSON encode/decode + validation in one pass | 10-20x faster than Pydantic v1 |
+| **msgspec** | C extension JSON encode/decode + validation in one pass | 10-20x faster than Pydantic v1 |
 | **Radix tree router** | O(k) path lookup (k = segments) instead of O(n) regex scan | 7.6x faster with 100+ routes |
 | **Compiled DI** | Handler signatures introspected once at startup, not per-request | Eliminates ~80% of per-request overhead |
 | **Zero-copy responses** | `msgspec.json.encode()` → bytes directly, no intermediate str | 50% fewer memory allocations |
@@ -693,13 +736,13 @@ Incoming Request
   Pre-compiled DI Resolver   ← No inspect.signature() per request
       │
       ▼
-  msgspec.json.decode()      ← Rust, one-pass validate + parse
+  msgspec.json.decode()      ← C extension, one-pass validate + parse
       │
       ▼
   Handler (uvloop-scheduled)  ← C event loop, minimal overhead
       │
       ▼
-  msgspec.json.encode()      ← Rust, zero-copy to bytes
+  msgspec.json.encode()      ← C extension, zero-copy to bytes
       │
       ▼
   Raw bytes → Client
@@ -732,10 +775,23 @@ git push -u origin dev/my-feature
 # Open PR → stage
 ```
 
-CI automatically runs **tests on Python 3.10–3.13** and **benchmarks** on every PR.
-The benchmark bot comments with a comparison table — 🟢 improved, ⚪ neutral, 🔴 regression.
+CI automatically runs **tests on Python 3.10–3.13** (coverage must stay **≥ 85%**) and **benchmarks**
+on every PR. The benchmark workflow enforces **ASGI and routing floors** from `benchmarks/baseline.json`
+and posts a table comparing **FasterAPI, FastAPI, and Fiber (Go)**.
 
 After approval → merge to `stage`.
+
+### Local checks
+
+```bash
+git clone https://github.com/FasterApiWeb/FasterAPI.git && cd FasterAPI
+pip install -e ".[dev]"
+pytest --cov=FasterAPI --cov-report=term-missing --cov-fail-under=85
+mypy FasterAPI/
+pip install -e ".[benchmark]" && python benchmarks/compare.py --direct
+```
+
+For docs: `pip install -e ".[docs]" && mkdocs serve`. Security reports: see [SECURITY.md](SECURITY.md).
 
 **As the maintainer (release cycle):**
 ```bash

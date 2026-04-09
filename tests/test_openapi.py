@@ -1,10 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
-
 import msgspec
 import pytest
-
 from FasterAPI.app import Faster
 from FasterAPI.dependencies import Depends
 from FasterAPI.openapi.generator import generate_openapi
@@ -12,11 +9,12 @@ from FasterAPI.openapi.ui import redoc_html, swagger_ui_html
 from FasterAPI.params import Body, Cookie, Header, Path, Query
 from FasterAPI.request import Request
 
-
 # --------------- models ---------------
+
 
 class Item(msgspec.Struct):
     """An item in the store."""
+
     name: str
     price: float
     in_stock: bool = True
@@ -35,6 +33,7 @@ class User(msgspec.Struct):
 
 # --------------- helpers ---------------
 
+
 def _make_app(**kw) -> Faster:
     return Faster(**kw)
 
@@ -42,6 +41,7 @@ def _make_app(**kw) -> Faster:
 # ==============================
 #  OpenAPI spec structure
 # ==============================
+
 
 class TestSpecStructure:
     def test_basic_structure(self):
@@ -84,6 +84,7 @@ class TestSpecStructure:
 # ==============================
 #  Path parameters
 # ==============================
+
 
 class TestPathParams:
     def test_path_param_in_spec(self):
@@ -129,6 +130,7 @@ class TestPathParams:
 # ==============================
 #  Query parameters
 # ==============================
+
 
 class TestQueryParams:
     def test_query_param(self):
@@ -178,6 +180,7 @@ class TestQueryParams:
 #  Header parameters
 # ==============================
 
+
 class TestHeaderParams:
     def test_header_param(self):
         app = _make_app()
@@ -209,6 +212,7 @@ class TestHeaderParams:
 #  Cookie parameters
 # ==============================
 
+
 class TestCookieParams:
     def test_cookie_param(self):
         app = _make_app()
@@ -228,6 +232,7 @@ class TestCookieParams:
 # ==============================
 #  Request body (structs)
 # ==============================
+
 
 class TestRequestBody:
     def test_struct_body(self):
@@ -315,6 +320,7 @@ class TestRequestBody:
 #  Response model
 # ==============================
 
+
 class TestResponseModel:
     def test_response_model_ref(self):
         app = _make_app()
@@ -343,6 +349,7 @@ class TestResponseModel:
 # ==============================
 #  Tags, summary, deprecated
 # ==============================
+
 
 class TestMetadata:
     def test_tags(self):
@@ -412,6 +419,7 @@ class TestMetadata:
 #  422 validation error response
 # ==============================
 
+
 class TestValidationResponse:
     def test_422_added_when_params_exist(self):
         app = _make_app()
@@ -440,6 +448,7 @@ class TestValidationResponse:
 #  Caching
 # ==============================
 
+
 class TestCaching:
     def test_spec_is_cached(self):
         app = _make_app()
@@ -456,6 +465,7 @@ class TestCaching:
 # ==============================
 #  Type mapping
 # ==============================
+
 
 class ListModel(msgspec.Struct):
     tags: list[str]
@@ -507,6 +517,7 @@ class TestTypeMapping:
 #  UI HTML
 # ==============================
 
+
 class TestUI:
     def test_swagger_html_contains_url(self):
         html = swagger_ui_html("/openapi.json", title="My App")
@@ -524,6 +535,7 @@ class TestUI:
 # ==============================
 #  Auto-registered routes in app
 # ==============================
+
 
 class MockSend:
     def __init__(self):
@@ -552,8 +564,11 @@ class TestAutoRoutes:
 
         send = MockSend()
         scope = {
-            "type": "http", "method": "GET", "path": "/openapi.json",
-            "headers": [], "query_string": b"",
+            "type": "http",
+            "method": "GET",
+            "path": "/openapi.json",
+            "headers": [],
+            "query_string": b"",
         }
 
         async def receive():
@@ -571,8 +586,11 @@ class TestAutoRoutes:
         app = _make_app()
         send = MockSend()
         scope = {
-            "type": "http", "method": "GET", "path": "/docs",
-            "headers": [], "query_string": b"",
+            "type": "http",
+            "method": "GET",
+            "path": "/docs",
+            "headers": [],
+            "query_string": b"",
         }
 
         async def receive():
@@ -587,8 +605,11 @@ class TestAutoRoutes:
         app = _make_app()
         send = MockSend()
         scope = {
-            "type": "http", "method": "GET", "path": "/redoc",
-            "headers": [], "query_string": b"",
+            "type": "http",
+            "method": "GET",
+            "path": "/redoc",
+            "headers": [],
+            "query_string": b"",
         }
 
         async def receive():
@@ -603,8 +624,11 @@ class TestAutoRoutes:
         app = Faster(openapi_url=None)
         send = MockSend()
         scope = {
-            "type": "http", "method": "GET", "path": "/openapi.json",
-            "headers": [], "query_string": b"",
+            "type": "http",
+            "method": "GET",
+            "path": "/openapi.json",
+            "headers": [],
+            "query_string": b"",
         }
 
         async def receive():
@@ -624,7 +648,8 @@ class TestAutoRoutes:
         # /api/schema should work
         await app(
             {"type": "http", "method": "GET", "path": "/api/schema", "headers": [], "query_string": b""},
-            receive, send,
+            receive,
+            send,
         )
         assert send.status == 200
 
@@ -632,6 +657,7 @@ class TestAutoRoutes:
 # ==============================
 #  Combined: complex app spec
 # ==============================
+
 
 class TestComplexSpec:
     def test_full_crud_spec(self):
