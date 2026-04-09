@@ -39,9 +39,30 @@ jobs:
       - name: Disable Jekyll (avoid 404 on paths with _)
         run: touch site/.nojekyll
 
-      - uses: actions/configure-pages@v4
+      - name: Check Pages is enabled (required once)
+        id: pages_check
+        uses: actions/github-script@v7
         with:
-          enablement: true
+          script: |
+            try {
+              await github.rest.repos.getPagesSite({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+              })
+              core.setOutput("enabled", "true")
+            } catch (e) {
+              // GitHub returns 404 when Pages isn't enabled for the repo.
+              core.setOutput("enabled", "false")
+            }
+
+      - name: Fail with instructions if Pages disabled
+        if: steps.pages_check.outputs.enabled != 'true'
+        run: |
+          echo "::error::GitHub Pages is not enabled for this repository yet."
+          echo "Enable it once at: Settings → Pages → Build and deployment → Source = GitHub Actions"
+          exit 1
+
+      - uses: actions/configure-pages@v4
 
       - uses: actions/upload-pages-artifact@v3
         with:
