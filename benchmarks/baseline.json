@@ -1,0 +1,9 @@
+{
+  "_comment": "CI fails if measured speedups drop below these floors (Ubuntu runner). Update when intentional perf work lands.",
+  "min_speedup_vs_fastapi": {
+    "health": 3.8,
+    "users_get": 4.5,
+    "users_post": 3.8
+  },
+  "min_radix_speedup_vs_regex": 4.0
+}

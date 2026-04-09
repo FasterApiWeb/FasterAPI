@@ -1,0 +1,14 @@
+# https://docs.codecov.com/docs/codecovyml-reference
+coverage:
+  range: 70..100
+  precision: 2
+  status:
+    project:
+      default:
+        target: auto
+        threshold: 0%
+    patch:
+      default:
+        informational: true
+
+comment: false

@@ -8,6 +8,7 @@ from typing import Any, Callable, Union, get_args, get_origin
 
 import msgspec
 
+from .._version import get_version
 from ..params import Body, Cookie, Header, Path, Query
 
 
@@ -15,10 +16,12 @@ def generate_openapi(
     app: Any,
     *,
     title: str = "FasterAPI",
-    version: str = "0.1.1",
+    version: str | None = None,
     description: str = "",
 ) -> dict[str, Any]:
     """Generate an OpenAPI 3.0.3 spec dict from a Faster app instance."""
+    if version is None:
+        version = get_version()
     if hasattr(app, "_openapi_cache") and app._openapi_cache is not None:
         result: dict[str, Any] = app._openapi_cache
         return result

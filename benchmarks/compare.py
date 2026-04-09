@@ -14,13 +14,16 @@ import asyncio
 import multiprocessing
 import os
 import socket
+import subprocess
 import sys
 import time
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
-import httpx
+if TYPE_CHECKING:
+    import httpx
 
 # Ensure the project root is on sys.path so child processes can import FasterAPI
+# httpx is imported lazily inside HTTP benchmark paths so `check_regressions` can run with dev-only deps.
 _PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _PROJECT_ROOT not in sys.path:
     sys.path.insert(0, _PROJECT_ROOT)
@@ -34,6 +37,12 @@ def _find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         return s.getsockname()[1]
+
+
+def _fiber_binary_path() -> Optional[str]:
+    name = "fiberbench.exe" if os.name == "nt" else "fiberbench"
+    p = os.path.join(_PROJECT_ROOT, "benchmarks", "fiber", name)
+    return p if os.path.isfile(p) else None
 
 
 def _run_fasterapi(port: int, ready: multiprocessing.Event) -> None:
@@ -98,6 +107,8 @@ def _run_fastapi(port: int, ready: multiprocessing.Event) -> None:
 # ───────────────────────────────────────────────
 
 async def _wait_for_server(url: str, timeout: float = 10.0) -> None:
+    import httpx
+
     deadline = time.monotonic() + timeout
     async with httpx.AsyncClient() as client:
         while time.monotonic() < deadline:
@@ -112,13 +123,15 @@ async def _wait_for_server(url: str, timeout: float = 10.0) -> None:
 
 
 async def _benchmark_endpoint(
-    client: httpx.AsyncClient,
+    client: "httpx.AsyncClient",
     method: str,
     path: str,
     total: int,
     concurrency: int,
     json_body: Optional[dict] = None,
 ) -> dict[str, Any]:
+    import httpx
+
     latencies: list[float] = []
     errors = 0
     semaphore = asyncio.Semaphore(concurrency)
@@ -159,9 +172,102 @@ async def _benchmark_endpoint(
     }
 
 
+async def measure_http_rps_three_way(
+    total: int,
+    concurrency: int,
+    fiber_executable: Optional[str] = None,
+) -> tuple[dict[str, dict[str, float]], Optional[str]]:
+    """Run the same HTTP load against FasterAPI, FastAPI, and (optional) Go Fiber."""
+    fiber_exe = fiber_executable or _fiber_binary_path()
+    port_faster = _find_free_port()
+    port_fastapi = _find_free_port()
+    port_fiber = _find_free_port()
+    if fiber_exe and port_fiber in (port_faster, port_fastapi):
+        port_fiber = _find_free_port()
+
+    ready_faster = multiprocessing.Event()
+    ready_fastapi = multiprocessing.Event()
+
+    proc_faster = multiprocessing.Process(
+        target=_run_fasterapi, args=(port_faster, ready_faster), daemon=True,
+    )
+    proc_fastapi = multiprocessing.Process(
+        target=_run_fastapi, args=(port_fastapi, ready_fastapi), daemon=True,
+    )
+    proc_fiber: Optional[subprocess.Popen] = None
+    if fiber_exe:
+        env = os.environ.copy()
+        env["PORT"] = str(port_fiber)
+        proc_fiber = subprocess.Popen(
+            [fiber_exe],
+            env=env,
+            cwd=os.path.join(_PROJECT_ROOT, "benchmarks", "fiber"),
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+
+    proc_faster.start()
+    proc_fastapi.start()
+
+    fiber_err: Optional[str] = None
+    try:
+        ready_faster.wait(timeout=15)
+        ready_fastapi.wait(timeout=15)
+
+        base_faster = f"http://127.0.0.1:{port_faster}"
+        base_fastapi = f"http://127.0.0.1:{port_fastapi}"
+
+        await _wait_for_server(f"{base_faster}/health")
+        await _wait_for_server(f"{base_fastapi}/health")
+
+        if proc_fiber:
+            try:
+                await _wait_for_server(f"http://127.0.0.1:{port_fiber}/health")
+            except TimeoutError as e:
+                fiber_err = str(e)
+                proc_fiber.terminate()
+                proc_fiber = None
+
+        faster_res = await _run_all_benchmarks(base_faster, total, concurrency)
+        fastapi_res = await _run_all_benchmarks(base_fastapi, total, concurrency)
+        fiber_res: dict[str, dict[str, Any]] = {}
+        if proc_fiber:
+            fiber_res = await _run_all_benchmarks(
+                f"http://127.0.0.1:{port_fiber}", total, concurrency,
+            )
+
+        out: dict[str, dict[str, float]] = {}
+        for key in ("health", "users_get", "users_post"):
+            f_rps = float(faster_res[key]["rps"])
+            fa_rps = float(fastapi_res[key]["rps"])
+            entry: dict[str, float] = {
+                "fasterapi": f_rps,
+                "fastapi": fa_rps,
+                "speedup": f_rps / fa_rps if fa_rps > 0 else 0.0,
+            }
+            if proc_fiber and key in fiber_res:
+                entry["fiber"] = float(fiber_res[key]["rps"])
+            out[key] = entry
+
+        return out, fiber_err
+    finally:
+        proc_faster.terminate()
+        proc_fastapi.terminate()
+        proc_faster.join(timeout=5)
+        proc_fastapi.join(timeout=5)
+        if proc_fiber:
+            proc_fiber.terminate()
+            try:
+                proc_fiber.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc_fiber.kill()
+
+
 async def _run_all_benchmarks(
     base_url: str, total: int, concurrency: int,
 ) -> dict[str, dict[str, Any]]:
+    import httpx
+
     body = {"name": "Alice", "email": "alice@test.com"}
     results = {}
     async with httpx.AsyncClient(base_url=base_url, timeout=30.0) as client:
@@ -277,8 +383,8 @@ def main(total: int = 10_000, concurrency: int = 100) -> None:
         proc_fastapi.join(timeout=3)
 
 
-def direct_benchmark() -> None:
-    """ASGI-level benchmark — no network, no httpx, pure framework speed."""
+def _build_asgi_pair():
+    """Return (faster_app, fastapi_app) for micro-benchmarks."""
     import json as _json
     import msgspec as _msgspec
 
@@ -305,9 +411,8 @@ def direct_benchmark() -> None:
     try:
         from fastapi import FastAPI
         from pydantic import BaseModel
-    except ImportError:
-        print("  FastAPI/Pydantic not installed — skipping direct comparison")
-        return
+    except ImportError as e:
+        raise RuntimeError("FastAPI/Pydantic required for comparison") from e
 
     class UserP(BaseModel):
         name: str
@@ -326,6 +431,131 @@ def direct_benchmark() -> None:
     @faapp.post("/users")
     async def _fap(user: UserP):
         return {"name": user.name, "email": user.email}
+
+    return fapp, faapp
+
+
+def measure_direct_asgi_rps(iterations: int = 50_000) -> dict[str, dict[str, float]]:
+    """Run direct ASGI benchmark and return req/s and speedup (for CI guards)."""
+    import json as _json
+
+    fapp, faapp = _build_asgi_pair()
+    N = iterations
+
+    async def _make_scope(method: str, path: str, body: dict | None = None):
+        scope = {
+            "type": "http", "method": method, "path": path,
+            "query_string": b"", "headers": [
+                (b"content-type", b"application/json"), (b"host", b"localhost"),
+            ],
+            "client": ("127.0.0.1", 9999),
+        }
+        body_bytes = _json.dumps(body).encode() if body else b""
+        sent: list[dict] = []
+
+        async def receive():
+            return {"type": "http.request", "body": body_bytes, "more_body": False}
+
+        async def send(msg: dict):
+            sent.append(msg)
+
+        return scope, receive, send
+
+    async def _bench(app, method: str, path: str, body=None) -> float:
+        for _ in range(200):
+            s, r, sn = await _make_scope(method, path, body)
+            await app(s, r, sn)
+        start = time.perf_counter()
+        for _ in range(N):
+            s, r, sn = await _make_scope(method, path, body)
+            await app(s, r, sn)
+        return N / (time.perf_counter() - start)
+
+    async def _run():
+        body = {"name": "Alice", "email": "alice@test.com"}
+        out: dict[str, dict[str, float]] = {}
+        for key, m, p, b in [
+            ("health", "GET", "/health", None),
+            ("users_get", "GET", "/users/42", None),
+            ("users_post", "POST", "/users", body),
+        ]:
+            f_rps = await _bench(fapp, m, p, b)
+            fa_rps = await _bench(faapp, m, p, b)
+            out[key] = {
+                "fasterapi": f_rps,
+                "fastapi": fa_rps,
+                "speedup": f_rps / fa_rps if fa_rps > 0 else 0.0,
+            }
+        return out
+
+    return asyncio.run(_run())
+
+
+def measure_routing_ops() -> dict[str, float]:
+    """Radix vs regex routing throughput (same workload as CI benchmark)."""
+    import re
+
+    from FasterAPI.router import RadixRouter
+
+    router = RadixRouter()
+    for i in range(50):
+        router.add_route("GET", f"/static/route{i}", lambda: None, {})
+    for i in range(30):
+        router.add_route("GET", f"/users/{{id}}/action{i}", lambda: None, {})
+    for i in range(20):
+        router.add_route(
+            "GET", f"/org/{{org_id}}/team/{{team_id}}/member{i}", lambda: None, {},
+        )
+
+    paths = ["/static/route25", "/users/42/action15", "/org/abc/team/xyz/member10"]
+    N = 500_000
+    start = time.perf_counter()
+    for _ in range(N):
+        for p in paths:
+            router.resolve("GET", p)
+    radix_ops = (N * 3) / (time.perf_counter() - start)
+
+    regex_routes = []
+    for i in range(50):
+        regex_routes.append((re.compile(f"^/static/route{i}$"), None))
+    for i in range(30):
+        regex_routes.append(
+            (re.compile(r"^/users/(\w+)/action" + str(i) + r"$"), None),
+        )
+    for i in range(20):
+        regex_routes.append(
+            (re.compile(r"^/org/(\w+)/team/(\w+)/member" + str(i) + r"$"), None),
+        )
+
+    def regex_resolve(path: str):
+        for p, h in regex_routes:
+            m = p.match(path)
+            if m:
+                return h, m.groups()
+        return None, ()
+
+    start = time.perf_counter()
+    for _ in range(N):
+        for p in paths:
+            regex_resolve(p)
+    regex_ops = (N * 3) / (time.perf_counter() - start)
+
+    return {
+        "radix": radix_ops,
+        "regex": regex_ops,
+        "speedup": radix_ops / regex_ops if regex_ops > 0 else 0.0,
+    }
+
+
+def direct_benchmark() -> None:
+    """ASGI-level benchmark — no network, no httpx, pure framework speed."""
+    try:
+        fapp, faapp = _build_asgi_pair()
+    except RuntimeError as e:
+        print(f"  {e}")
+        return
+
+    import json as _json
 
     N = 50_000
 
