@@ -1,6 +1,6 @@
 FROM python:3.13-slim
 
-LABEL org.opencontainers.image.source="https://github.com/EshwarCVS/FasterAPI"
+LABEL org.opencontainers.image.source="https://github.com/FasterApiWeb/FasterAPI"
 LABEL org.opencontainers.image.description="FasterAPI — High-performance ASGI web framework"
 LABEL org.opencontainers.image.licenses="MIT"
 

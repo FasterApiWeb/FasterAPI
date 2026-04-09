@@ -1,12 +1,12 @@
 # FasterAPI
 
 [![PyPI version](https://img.shields.io/pypi/v/faster-api-web.svg)](https://pypi.org/project/faster-api-web/)
-[![CI](https://github.com/EshwarCVS/FasterAPI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/EshwarCVS/FasterAPI/actions/workflows/ci.yml)
-[![Benchmark](https://github.com/EshwarCVS/FasterAPI/actions/workflows/benchmark.yml/badge.svg)](https://github.com/EshwarCVS/FasterAPI/actions/workflows/benchmark.yml)
-[![codecov](https://codecov.io/gh/EshwarCVS/FasterAPI/branch/master/graph/badge.svg)](https://codecov.io/gh/EshwarCVS/FasterAPI)
+[![CI](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml)
+[![Benchmark](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml/badge.svg)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml)
+[![codecov](https://codecov.io/gh/FasterApiWeb/FasterAPI/branch/master/graph/badge.svg)](https://codecov.io/gh/FasterApiWeb/FasterAPI)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://ghcr.io/eshwarcvs/fasterapi)
+[![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://ghcr.io/fasterapiweb/fasterapi)
 
 **FasterAPI** is a high-performance ASGI web framework for Python,
 written for **Python 3.13** first and with graceful fallbacks to 3.12,
@@ -76,7 +76,7 @@ pip install faster-api-web[all]
 Or install from source:
 
 ```bash
-git clone https://github.com/EshwarCVS/FasterAPI.git
+git clone https://github.com/FasterApiWeb/FasterAPI.git
 cd FasterAPI
 pip install -e ".[dev]"
 ```
@@ -650,7 +650,7 @@ Contributions are welcome.
 
 ```bash
 # Clone and install
-git clone https://github.com/EshwarCVS/FasterAPI.git
+git clone https://github.com/FasterApiWeb/FasterAPI.git
 cd FasterAPI
 pip install -e ".[dev]"
 
