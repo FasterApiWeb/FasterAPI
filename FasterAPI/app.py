@@ -56,7 +56,7 @@ class Faster:
         self,
         *,
         title: str = "FasterAPI",
-        version: str = "0.1.0",
+        version: str = "0.1.1",
         description: str = "",
         openapi_url: str | None = "/openapi.json",
         docs_url: str | None = "/docs",
