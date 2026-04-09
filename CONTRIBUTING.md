@@ -48,7 +48,15 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 
 # Run tests
-pytest --cov=FasterAPI
+pytest --cov=FasterAPI --cov-fail-under=85
+
+# Lint and types (matches CI on Python 3.13)
+ruff format --check FasterAPI tests benchmarks
+ruff check FasterAPI tests benchmarks
+mypy FasterAPI tests
+
+# Multi-version tests (requires Python 3.11–3.13 on PATH)
+tox
 
 # Run benchmarks locally
 pip install -e ".[benchmark]"

@@ -17,7 +17,7 @@ import socket
 import subprocess
 import sys
 import time
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     import httpx
@@ -33,13 +33,14 @@ if _PROJECT_ROOT not in sys.path:
 #  App factories (each runs in its own process)
 # ───────────────────────────────────────────────
 
+
 def _find_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind(("", 0))
         return s.getsockname()[1]
 
 
-def _fiber_binary_path() -> Optional[str]:
+def _fiber_binary_path() -> str | None:
     name = "fiberbench.exe" if os.name == "nt" else "fiberbench"
     p = os.path.join(_PROJECT_ROOT, "benchmarks", "fiber", name)
     return p if os.path.isfile(p) else None
@@ -47,9 +48,8 @@ def _fiber_binary_path() -> Optional[str]:
 
 def _run_fasterapi(port: int, ready: multiprocessing.Event) -> None:
     """Launch a FasterAPI (Faster) server in this process."""
-    import uvicorn
     import msgspec
-
+    import uvicorn
     from FasterAPI.app import Faster
 
     class User(msgspec.Struct):
@@ -106,6 +106,7 @@ def _run_fastapi(port: int, ready: multiprocessing.Event) -> None:
 #  Benchmark runner
 # ───────────────────────────────────────────────
 
+
 async def _wait_for_server(url: str, timeout: float = 10.0) -> None:
     import httpx
 
@@ -128,9 +129,8 @@ async def _benchmark_endpoint(
     path: str,
     total: int,
     concurrency: int,
-    json_body: Optional[dict] = None,
+    json_body: dict | None = None,
 ) -> dict[str, Any]:
-    import httpx
 
     latencies: list[float] = []
     errors = 0
@@ -175,8 +175,8 @@ async def _benchmark_endpoint(
 async def measure_http_rps_three_way(
     total: int,
     concurrency: int,
-    fiber_executable: Optional[str] = None,
-) -> tuple[dict[str, dict[str, float]], Optional[str]]:
+    fiber_executable: str | None = None,
+) -> tuple[dict[str, dict[str, float]], str | None]:
     """Run the same HTTP load against FasterAPI, FastAPI, and (optional) Go Fiber."""
     fiber_exe = fiber_executable or _fiber_binary_path()
     port_faster = _find_free_port()
@@ -189,12 +189,16 @@ async def measure_http_rps_three_way(
     ready_fastapi = multiprocessing.Event()
 
     proc_faster = multiprocessing.Process(
-        target=_run_fasterapi, args=(port_faster, ready_faster), daemon=True,
+        target=_run_fasterapi,
+        args=(port_faster, ready_faster),
+        daemon=True,
     )
     proc_fastapi = multiprocessing.Process(
-        target=_run_fastapi, args=(port_fastapi, ready_fastapi), daemon=True,
+        target=_run_fastapi,
+        args=(port_fastapi, ready_fastapi),
+        daemon=True,
     )
-    proc_fiber: Optional[subprocess.Popen] = None
+    proc_fiber: subprocess.Popen | None = None
     if fiber_exe:
         env = os.environ.copy()
         env["PORT"] = str(port_fiber)
@@ -209,7 +213,7 @@ async def measure_http_rps_three_way(
     proc_faster.start()
     proc_fastapi.start()
 
-    fiber_err: Optional[str] = None
+    fiber_err: str | None = None
     try:
         ready_faster.wait(timeout=15)
         ready_fastapi.wait(timeout=15)
@@ -233,7 +237,9 @@ async def measure_http_rps_three_way(
         fiber_res: dict[str, dict[str, Any]] = {}
         if proc_fiber:
             fiber_res = await _run_all_benchmarks(
-                f"http://127.0.0.1:{port_fiber}", total, concurrency,
+                f"http://127.0.0.1:{port_fiber}",
+                total,
+                concurrency,
             )
 
         out: dict[str, dict[str, float]] = {}
@@ -264,7 +270,9 @@ async def measure_http_rps_three_way(
 
 
 async def _run_all_benchmarks(
-    base_url: str, total: int, concurrency: int,
+    base_url: str,
+    total: int,
+    concurrency: int,
 ) -> dict[str, dict[str, Any]]:
     import httpx
 
@@ -285,6 +293,7 @@ async def _run_all_benchmarks(
 # ───────────────────────────────────────────────
 #  Comparison table
 # ───────────────────────────────────────────────
+
 
 def _print_header(total: int, concurrency: int) -> None:
     print()
@@ -318,8 +327,7 @@ def _print_summary(faster_results: dict, fastapi_results: dict) -> None:
         f = faster_results[endpoint]
         fa = fastapi_results[endpoint]
         speedup = f["rps"] / fa["rps"] if fa["rps"] > 0 else float("inf")
-        print(f"  {label:<30} {speedup:>6.2f}x faster  "
-              f"({f['rps']:,.0f} vs {fa['rps']:,.0f} req/s)")
+        print(f"  {label:<30} {speedup:>6.2f}x faster  ({f['rps']:,.0f} vs {fa['rps']:,.0f} req/s)")
     print()
     print("  Note: For Fiber (Go) comparison, use wrk/bombardier against")
     print("  a Fiber app on the same machine. Typical Fiber numbers are")
@@ -334,6 +342,7 @@ def _print_summary(faster_results: dict, fastapi_results: dict) -> None:
 #  Main
 # ───────────────────────────────────────────────
 
+
 def main(total: int = 10_000, concurrency: int = 100) -> None:
 
     port_faster = _find_free_port()
@@ -343,10 +352,14 @@ def main(total: int = 10_000, concurrency: int = 100) -> None:
     ready_fastapi = multiprocessing.Event()
 
     proc_faster = multiprocessing.Process(
-        target=_run_fasterapi, args=(port_faster, ready_faster), daemon=True,
+        target=_run_fasterapi,
+        args=(port_faster, ready_faster),
+        daemon=True,
     )
     proc_fastapi = multiprocessing.Process(
-        target=_run_fastapi, args=(port_fastapi, ready_fastapi), daemon=True,
+        target=_run_fastapi,
+        args=(port_fastapi, ready_fastapi),
+        daemon=True,
     )
 
     proc_faster.start()
@@ -371,8 +384,12 @@ def main(total: int = 10_000, concurrency: int = 100) -> None:
         fastapi_results = asyncio.run(_run_all_benchmarks(base_fastapi, total, concurrency))
 
         _print_table("GET /health — simple JSON response", faster_results["health"], fastapi_results["health"])
-        _print_table("GET /users/{id} — path parameter extraction", faster_results["users_get"], fastapi_results["users_get"])
-        _print_table("POST /users — JSON body parsing & validation", faster_results["users_post"], fastapi_results["users_post"])
+        _print_table(
+            "GET /users/{id} — path parameter extraction", faster_results["users_get"], fastapi_results["users_get"]
+        )
+        _print_table(
+            "POST /users — JSON body parsing & validation", faster_results["users_post"], fastapi_results["users_post"]
+        )
 
         _print_summary(faster_results, fastapi_results)
 
@@ -385,9 +402,7 @@ def main(total: int = 10_000, concurrency: int = 100) -> None:
 
 def _build_asgi_pair():
     """Return (faster_app, fastapi_app) for micro-benchmarks."""
-    import json as _json
     import msgspec as _msgspec
-
     from FasterAPI.app import Faster
 
     class UserF(_msgspec.Struct):
@@ -444,9 +459,13 @@ def measure_direct_asgi_rps(iterations: int = 50_000) -> dict[str, dict[str, flo
 
     async def _make_scope(method: str, path: str, body: dict | None = None):
         scope = {
-            "type": "http", "method": method, "path": path,
-            "query_string": b"", "headers": [
-                (b"content-type", b"application/json"), (b"host", b"localhost"),
+            "type": "http",
+            "method": method,
+            "path": path,
+            "query_string": b"",
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"host", b"localhost"),
             ],
             "client": ("127.0.0.1", 9999),
         }
@@ -504,7 +523,10 @@ def measure_routing_ops() -> dict[str, float]:
         router.add_route("GET", f"/users/{{id}}/action{i}", lambda: None, {})
     for i in range(20):
         router.add_route(
-            "GET", f"/org/{{org_id}}/team/{{team_id}}/member{i}", lambda: None, {},
+            "GET",
+            f"/org/{{org_id}}/team/{{team_id}}/member{i}",
+            lambda: None,
+            {},
         )
 
     paths = ["/static/route25", "/users/42/action15", "/org/abc/team/xyz/member10"]
@@ -561,9 +583,13 @@ def direct_benchmark() -> None:
 
     async def _make_scope(method: str, path: str, body: dict | None = None):
         scope = {
-            "type": "http", "method": method, "path": path,
-            "query_string": b"", "headers": [
-                (b"content-type", b"application/json"), (b"host", b"localhost"),
+            "type": "http",
+            "method": method,
+            "path": path,
+            "query_string": b"",
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"host", b"localhost"),
             ],
             "client": ("127.0.0.1", 9999),
         }
@@ -603,8 +629,7 @@ def direct_benchmark() -> None:
         ]:
             f_rps = await _bench(fapp, m, p, b)
             fa_rps = await _bench(faapp, m, p, b)
-            print(f"  {label:<28} {f_rps:>10,.0f}/s {fa_rps:>10,.0f}/s"
-                  f" {f_rps / fa_rps:>9.2f}x")
+            print(f"  {label:<28} {f_rps:>10,.0f}/s {fa_rps:>10,.0f}/s {f_rps / fa_rps:>9.2f}x")
         print()
         print("=" * 72)
         print()
@@ -616,8 +641,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="FasterAPI vs FastAPI benchmark")
     parser.add_argument("--requests", type=int, default=10_000)
     parser.add_argument("--concurrency", type=int, default=100)
-    parser.add_argument("--direct", action="store_true",
-                        help="Run direct ASGI benchmark (no HTTP server)")
+    parser.add_argument("--direct", action="store_true", help="Run direct ASGI benchmark (no HTTP server)")
     args = parser.parse_args()
 
     if args.direct:

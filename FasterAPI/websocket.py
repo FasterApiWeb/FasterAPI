@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any
 from urllib.parse import parse_qs
 
 import msgspec.json
+
+from .types import ASGIApp
 
 
 class WebSocketState:
@@ -25,11 +27,18 @@ class WebSocket:
     """Represents a WebSocket connection."""
 
     __slots__ = (
-        "_scope", "_receive", "_send", "path", "path_params",
-        "client", "headers", "query_params", "_state",
+        "_scope",
+        "_receive",
+        "_send",
+        "path",
+        "path_params",
+        "client",
+        "headers",
+        "query_params",
+        "_state",
     )
 
-    def __init__(self, scope: dict, receive: Callable, send: Callable) -> None:
+    def __init__(self, scope: dict[str, Any], receive: ASGIApp, send: ASGIApp) -> None:
         self._scope = scope
         self._receive = receive
         self._send = send
@@ -39,17 +48,11 @@ class WebSocket:
         self.client: tuple[str, int] | None = scope.get("client")
 
         raw_headers: list[tuple[bytes, bytes]] = scope.get("headers", [])
-        self.headers: dict[str, str] = {
-            k.decode("latin-1").lower(): v.decode("latin-1")
-            for k, v in raw_headers
-        }
+        self.headers: dict[str, str] = {k.decode("latin-1").lower(): v.decode("latin-1") for k, v in raw_headers}
 
         qs = scope.get("query_string", b"")
         parsed = parse_qs(qs.decode("latin-1") if isinstance(qs, bytes) else qs)
-        self.query_params: dict[str, Any] = {
-            k: v[0] if len(v) == 1 else v
-            for k, v in parsed.items()
-        }
+        self.query_params: dict[str, Any] = {k: v[0] if len(v) == 1 else v for k, v in parsed.items()}
 
     async def accept(self, subprotocol: str | None = None) -> None:
         """Accept the WebSocket connection, optionally selecting a subprotocol."""
@@ -82,7 +85,7 @@ class WebSocket:
     async def receive_json(self) -> Any:
         """Receive a message from the WebSocket and parse it as JSON."""
         text = await self.receive_text()
-        return msgspec.json.decode(text.encode())  # type: ignore[return-value]
+        return msgspec.json.decode(text.encode())
 
     async def send_text(self, data: str) -> None:
         """Send a text message through the WebSocket."""
