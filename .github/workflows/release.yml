@@ -50,6 +50,7 @@ jobs:
           repository-url: https://test.pypi.org/legacy/
           user: __token__
           password: ${{ secrets.TEST_PYPI_API_TOKEN }}
+          skip-existing: true
 
   # ── Gate: only release from master ──────────────────────────────────
   check-branch:
@@ -130,6 +131,8 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
 
   # ── Step 4: Publish Docker image to GitHub Packages (ghcr.io) ──────
   publish-docker:
@@ -157,14 +160,18 @@ jobs:
         id: owner
         run: echo "owner_lc=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
 
+      - name: Normalize repo name to lowercase
+        id: repo
+        run: echo "repo_lc=${GITHUB_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]' | awk '{print "repo_lc="$0}' >> "$GITHUB_OUTPUT"
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ steps.owner.outputs.owner_lc }}/fasterapi:${{ steps.version.outputs.tag }}
-            ghcr.io/${{ steps.owner.outputs.owner_lc }}/fasterapi:latest
+            ghcr.io/${{ steps.owner.outputs.owner_lc }}/${{ steps.repo.outputs.repo_lc }}:${{ steps.version.outputs.tag }}
+            ghcr.io/${{ steps.owner.outputs.owner_lc }}/${{ steps.repo.outputs.repo_lc }}:latest
 
   # ── Step 5: Create GitHub Release with artifacts ───────────────────
   github-release:
