@@ -108,3 +108,8 @@ packages = ["FasterAPI"]
 
 [tool.hatch.version]
 source = "vcs"
+
+# TestPyPI/PyPI reject local version identifiers like "+g<hash>".
+# Keep tag-based releases unchanged, but make non-tag builds PEP 440 compliant.
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
