@@ -1,7 +1,6 @@
 """Concurrency helpers (thread pool, process pool fallbacks)."""
 
 import pytest
-
 from FasterAPI import concurrency as c
 
 

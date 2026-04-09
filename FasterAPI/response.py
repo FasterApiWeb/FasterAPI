@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import asyncio
 import mimetypes
+from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from typing import Any, AsyncIterator, Callable, Iterator
+from typing import Any
 
 import msgspec.json
+
+from .types import ASGIApp
 
 
 class Response:
@@ -45,17 +48,21 @@ class Response:
             raw.append((key.lower().encode("latin-1"), value.encode("latin-1")))
         return raw
 
-    async def to_asgi(self, send: Callable) -> None:
+    async def to_asgi(self, send: ASGIApp) -> None:
         """Send the response through the ASGI interface."""
-        await send({
-            "type": "http.response.start",
-            "status": self.status_code,
-            "headers": self._build_headers(),
-        })
-        await send({
-            "type": "http.response.body",
-            "body": self.body,
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": self.status_code,
+                "headers": self._build_headers(),
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": self.body,
+            }
+        )
 
 
 class JSONResponse(Response):
@@ -136,27 +143,33 @@ class StreamingResponse:
             raw.append((key.lower().encode("latin-1"), value.encode("latin-1")))
         return raw
 
-    async def to_asgi(self, send: Callable) -> None:
+    async def to_asgi(self, send: ASGIApp) -> None:
         """Stream the response body through the ASGI interface."""
-        await send({
-            "type": "http.response.start",
-            "status": self.status_code,
-            "headers": self._build_headers(),
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": self.status_code,
+                "headers": self._build_headers(),
+            }
+        )
         if hasattr(self.content, "__aiter__"):
             async for chunk in self.content:
-                await send({
-                    "type": "http.response.body",
-                    "body": chunk if isinstance(chunk, bytes) else chunk.encode(),
-                    "more_body": True,
-                })
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": chunk if isinstance(chunk, bytes) else chunk.encode(),
+                        "more_body": True,
+                    }
+                )
         else:
             for chunk in self.content:
-                await send({
-                    "type": "http.response.body",
-                    "body": chunk if isinstance(chunk, bytes) else chunk.encode(),
-                    "more_body": True,
-                })
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": chunk if isinstance(chunk, bytes) else chunk.encode(),
+                        "more_body": True,
+                    }
+                )
         await send({"type": "http.response.body", "body": b"", "more_body": False})
 
 
@@ -193,14 +206,17 @@ class FileResponse:
             raw.append((key.lower().encode("latin-1"), value.encode("latin-1")))
         return raw
 
-    async def to_asgi(self, send: Callable) -> None:
+    async def to_asgi(self, send: ASGIApp) -> None:
         """Read the file and send it through the ASGI interface."""
         content = await asyncio.get_running_loop().run_in_executor(
-            None, self.path.read_bytes,
+            None,
+            self.path.read_bytes,
         )
-        await send({
-            "type": "http.response.start",
-            "status": self.status_code,
-            "headers": self._build_headers(),
-        })
+        await send(
+            {
+                "type": "http.response.start",
+                "status": self.status_code,
+                "headers": self._build_headers(),
+            }
+        )
         await send({"type": "http.response.body", "body": content})

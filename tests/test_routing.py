@@ -1,7 +1,7 @@
-from FasterAPI.router import RadixRouter, FasterRouter
-
+from FasterAPI.router import FasterRouter, RadixRouter
 
 # --- Helpers ---
+
 
 def _handler():
     pass
@@ -12,6 +12,7 @@ def _other():
 
 
 # --- RadixRouter: static routes ---
+
 
 class TestStaticRoutes:
     def test_root(self):
@@ -52,6 +53,7 @@ class TestStaticRoutes:
 
 
 # --- RadixRouter: param routes ---
+
 
 class TestParamRoutes:
     def test_single_param(self):
@@ -94,6 +96,7 @@ class TestParamRoutes:
 
 # --- RadixRouter: method handling ---
 
+
 class TestMethodHandling:
     def test_method_mismatch(self):
         r = RadixRouter()
@@ -114,6 +117,7 @@ class TestMethodHandling:
 
 
 # --- RadixRouter: trailing slash tolerance ---
+
 
 class TestTrailingSlash:
     def test_registered_without_resolved_with(self):
@@ -138,6 +142,7 @@ class TestTrailingSlash:
 
 # --- RadixRouter: metadata ---
 
+
 class TestMetadata:
     def test_metadata_returned(self):
         r = RadixRouter()
@@ -153,6 +158,7 @@ class TestMetadata:
 
 
 # --- FasterRouter ---
+
 
 class TestFasterRouter:
     def test_prefix_applied(self):
@@ -179,19 +185,24 @@ class TestFasterRouter:
         router = FasterRouter()
 
         @router.get("/a")
-        def a(): pass
+        def a():
+            pass
 
         @router.post("/b")
-        def b(): pass
+        def b():
+            pass
 
         @router.put("/c")
-        def c(): pass
+        def c():
+            pass
 
         @router.delete("/d")
-        def d(): pass
+        def d():
+            pass
 
         @router.patch("/e")
-        def e(): pass
+        def e():
+            pass
 
         methods = [r["method"] for r in router.routes]
         assert methods == ["GET", "POST", "PUT", "DELETE", "PATCH"]

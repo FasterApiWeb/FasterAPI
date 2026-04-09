@@ -1,27 +1,29 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Generator
 from contextlib import contextmanager
-from typing import Any, Callable, Generator
+from typing import Any
 
 import httpx
 
-from .websocket import WebSocket, WebSocketDisconnect
+from .types import ASGIApp
+from .websocket import WebSocketDisconnect
 
 
 class _WebSocketSession:
     """Test WebSocket session that communicates through in-memory queues."""
 
     def __init__(self) -> None:
-        self._send_queue: asyncio.Queue[dict] = asyncio.Queue()
-        self._receive_queue: asyncio.Queue[dict] = asyncio.Queue()
+        self._send_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+        self._receive_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
         self._accepted = False
         self._closed = False
 
-    async def _asgi_receive(self) -> dict:
+    async def _asgi_receive(self) -> dict[str, Any]:
         return await self._receive_queue.get()
 
-    async def _asgi_send(self, message: dict) -> None:
+    async def _asgi_send(self, message: dict[str, Any]) -> None:
         await self._send_queue.put(message)
 
     def send_text(self, data: str) -> None:
@@ -32,6 +34,7 @@ class _WebSocketSession:
 
     def send_json(self, data: Any) -> None:
         import msgspec.json
+
         self.send_text(msgspec.json.encode(data).decode())
 
     def receive_text(self) -> str:
@@ -44,6 +47,7 @@ class _WebSocketSession:
 
     def receive_json(self) -> Any:
         import msgspec.json
+
         text = self.receive_text()
         return msgspec.json.decode(text.encode())
 
@@ -51,12 +55,12 @@ class _WebSocketSession:
         self._receive_queue.put_nowait({"type": "websocket.disconnect", "code": code})
         self._closed = True
 
-    def _drain_one(self) -> dict:
+    def _drain_one(self) -> dict[str, Any]:
         """Get the next message from the send queue (blocks briefly)."""
         try:
             msg = self._send_queue.get_nowait()
         except asyncio.QueueEmpty:
-            raise RuntimeError("No message available from server")
+            raise RuntimeError("No message available from server") from None
         if msg.get("type") == "websocket.accept":
             self._accepted = True
             return self._drain_one()
@@ -77,7 +81,7 @@ class TestClient:
 
     def __init__(
         self,
-        app: Callable,
+        app: ASGIApp,
         base_url: str = "http://testserver",
     ) -> None:
         self.app = app
@@ -102,6 +106,7 @@ class TestClient:
 
         if loop and loop.is_running():
             import concurrent.futures
+
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 return pool.submit(asyncio.run, coro).result()
         return asyncio.run(coro)
@@ -158,10 +163,7 @@ class TestClient:
         scope = {
             "type": "websocket",
             "path": path,
-            "headers": [
-                (k.lower().encode(), v.encode())
-                for k, v in (headers or {}).items()
-            ],
+            "headers": [(k.lower().encode(), v.encode()) for k, v in (headers or {}).items()],
             "query_string": query_string.encode() if query_string else b"",
             "client": ("testclient", 0),
         }
