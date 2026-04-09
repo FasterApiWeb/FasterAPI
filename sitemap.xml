@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://fasterapiweb.github.io/FasterAPI/</loc>
+         <lastmod>2026-04-09</lastmod>
+    </url>
+    <url>
+         <loc>https://fasterapiweb.github.io/FasterAPI/acknowledgments/</loc>
+         <lastmod>2026-04-09</lastmod>
+    </url>
+    <url>
+         <loc>https://fasterapiweb.github.io/FasterAPI/api-reference/</loc>
+         <lastmod>2026-04-09</lastmod>
+    </url>
+    <url>
+         <loc>https://fasterapiweb.github.io/FasterAPI/benchmarks/</loc>
+         <lastmod>2026-04-09</lastmod>
+    </url>
+    <url>
+         <loc>https://fasterapiweb.github.io/FasterAPI/getting-started/</loc>
+         <lastmod>2026-04-09</lastmod>
+    </url>
+    <url>
+         <loc>https://fasterapiweb.github.io/FasterAPI/migration-from-fastapi/</loc>
+         <lastmod>2026-04-09</lastmod>
+    </url>
+    <url>
+         <loc>https://fasterapiweb.github.io/FasterAPI/python-313/</loc>
+         <lastmod>2026-04-09</lastmod>
+    </url>
+    <url>
+         <loc>https://fasterapiweb.github.io/FasterAPI/tutorial-crud/</loc>
+         <lastmod>2026-04-09</lastmod>
+    </url>
+</urlset>
