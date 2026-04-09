@@ -30,7 +30,7 @@ jobs:
 
       - name: Build Go Fiber benchmark server
         working-directory: benchmarks/fiber
-        run: go mod download && go build -o fiberbench .
+        run: go mod tidy && go build -o fiberbench .
 
       - name: Enforce benchmark floors (ASGI + routing)
         run: python benchmarks/check_regressions.py
