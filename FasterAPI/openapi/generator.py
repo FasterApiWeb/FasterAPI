@@ -15,7 +15,7 @@ def generate_openapi(
     app: Any,
     *,
     title: str = "FasterAPI",
-    version: str = "0.1.0",
+    version: str = "0.1.1",
     description: str = "",
 ) -> dict[str, Any]:
     """Generate an OpenAPI 3.0.3 spec dict from a Faster app instance."""

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "faster-api-web"
-version = "0.1.0"
+version = "0.1.1"
 description = "FasterAPI — A high-performance ASGI web framework. FastAPI speed, without the wait."
 readme = "README.md"
 license = "MIT"
