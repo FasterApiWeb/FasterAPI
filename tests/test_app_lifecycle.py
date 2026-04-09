@@ -1,7 +1,6 @@
 """Lifespan, errors, and middleware wiring."""
 
 import pytest
-
 from FasterAPI.app import Faster
 from FasterAPI.exceptions import HTTPException
 
@@ -78,6 +77,7 @@ async def test_custom_exception_handler():
 
     def handle(request, exc: Boom):
         from FasterAPI.response import PlainTextResponse
+
         return PlainTextResponse("handled", 418)
 
     app.add_exception_handler(Boom, handle)

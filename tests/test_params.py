@@ -1,8 +1,6 @@
-import asyncio
 import inspect
 
 import pytest
-
 from FasterAPI.params import (
     MISSING,
     Body,
@@ -15,8 +13,8 @@ from FasterAPI.params import (
 )
 from FasterAPI.request import Request
 
-
 # --------------- helpers ---------------
+
 
 def _make_scope(
     *,
@@ -55,6 +53,7 @@ async def _receive_body(body: bytes = b""):
 #  Request tests
 # ==============================
 
+
 class TestRequestBasics:
     def test_method_and_path(self):
         scope = _make_scope(method="POST", path="/users")
@@ -63,10 +62,12 @@ class TestRequestBasics:
         assert req.path == "/users"
 
     def test_headers_lowercase(self):
-        scope = _make_scope(headers=[
-            (b"Content-Type", b"application/json"),
-            (b"X-Custom", b"value"),
-        ])
+        scope = _make_scope(
+            headers=[
+                (b"Content-Type", b"application/json"),
+                (b"X-Custom", b"value"),
+            ]
+        )
         req = Request(scope, None)
         assert req.headers["content-type"] == "application/json"
         assert req.headers["x-custom"] == "value"
@@ -101,9 +102,11 @@ class TestRequestClient:
 
 class TestRequestCookies:
     def test_cookies_parsed(self):
-        scope = _make_scope(headers=[
-            (b"cookie", b"session=abc123; theme=dark"),
-        ])
+        scope = _make_scope(
+            headers=[
+                (b"cookie", b"session=abc123; theme=dark"),
+            ]
+        )
         req = Request(scope, None)
         assert req.cookies == {"session": "abc123", "theme": "dark"}
 
@@ -115,9 +118,11 @@ class TestRequestCookies:
 
 class TestRequestContentType:
     def test_content_type(self):
-        scope = _make_scope(headers=[
-            (b"content-type", b"application/json"),
-        ])
+        scope = _make_scope(
+            headers=[
+                (b"content-type", b"application/json"),
+            ]
+        )
         req = Request(scope, None)
         assert req.content_type == "application/json"
 
@@ -165,14 +170,14 @@ class TestRequestForm:
     async def test_multipart_form(self):
         boundary = "----boundary"
         body = (
-            f"------boundary\r\n"
-            f'Content-Disposition: form-data; name="field1"\r\n\r\n'
-            f"value1\r\n"
-            f"------boundary\r\n"
-            f'Content-Disposition: form-data; name="field2"\r\n\r\n'
-            f"value2\r\n"
-            f"------boundary--\r\n"
-        ).encode()
+            b"------boundary\r\n"
+            b'Content-Disposition: form-data; name="field1"\r\n\r\n'
+            b"value1\r\n"
+            b"------boundary\r\n"
+            b'Content-Disposition: form-data; name="field2"\r\n\r\n'
+            b"value2\r\n"
+            b"------boundary--\r\n"
+        )
         receive = await _receive_body(body)
         scope = _make_scope(
             method="POST",
@@ -187,6 +192,7 @@ class TestRequestForm:
 # ==============================
 #  Param descriptor tests
 # ==============================
+
 
 class TestPathParam:
     def test_defaults(self):
@@ -277,6 +283,7 @@ class TestFormParam:
 # ==============================
 #  Signature-level usage
 # ==============================
+
 
 class TestSignatureUsage:
     def test_params_as_defaults_in_signature(self):

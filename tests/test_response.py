@@ -1,10 +1,8 @@
 """Tests for response classes and ASGI emitters."""
 
-import asyncio
 from pathlib import Path
 
 import pytest
-
 from FasterAPI.response import (
     FileResponse,
     HTMLResponse,
@@ -123,4 +121,3 @@ async def test_file_response(tmp_path: Path):
     assert sent[1]["body"] == b"file-content"
     hdrs = dict(sent[0]["headers"])
     assert b"attachment" in hdrs[b"content-disposition"]
-

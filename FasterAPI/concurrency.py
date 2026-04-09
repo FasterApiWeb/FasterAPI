@@ -27,12 +27,14 @@ The public API is identical regardless of Python version:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import inspect
 import os
 import sys
+from collections.abc import Callable
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
 from functools import partial
-from typing import Any, Callable
+from typing import Any
 
 # ───────────────────────────────────────────────────────────────────────
 #  Version detection
@@ -74,6 +76,7 @@ def _get_thread_pool() -> ThreadPoolExecutor:
 # ───────────────────────────────────────────────────────────────────────
 #  Core helpers
 # ───────────────────────────────────────────────────────────────────────
+
 
 def is_coroutine(func: Callable) -> bool:  # type: ignore[type-arg]
     """Return True if *func* is a coroutine function."""
@@ -121,8 +124,9 @@ async def run_in_threadpool(func: Callable, *args: Any) -> Any:  # type: ignore[
 _HAS_INTERPRETERS = False
 if _PY313_PLUS:
     try:
-        import interpreters  # type: ignore[import-not-found]
-        import interpreters.channels  # type: ignore[import-not-found]
+        import interpreters
+        import interpreters.channels
+
         _HAS_INTERPRETERS = True
     except ImportError:
         pass
@@ -171,9 +175,7 @@ if _HAS_INTERPRETERS:
             assert self._semaphore is not None
             async with self._semaphore:
                 # Round-robin: pick the next free interpreter
-                interp = self._interpreters[
-                    id(asyncio.current_task()) % len(self._interpreters)
-                ]
+                interp = self._interpreters[id(asyncio.current_task()) % len(self._interpreters)]
                 loop = asyncio.get_running_loop()
                 return await loop.run_in_executor(
                     self._thread_pool,
@@ -184,10 +186,8 @@ if _HAS_INTERPRETERS:
             """Destroy all sub-interpreters and the backing thread pool."""
             self._thread_pool.shutdown(wait=False)
             for interp in self._interpreters:
-                try:
+                with contextlib.suppress(Exception):
                     interp.close()
-                except Exception:
-                    pass
             self._interpreters.clear()
             self._initialized = False
 
@@ -219,7 +219,8 @@ if not _HAS_INTERPRETERS:
             """Execute *func* in a worker process (pickle-based)."""
             loop = asyncio.get_running_loop()
             return await loop.run_in_executor(
-                self._executor, partial(func, *args),
+                self._executor,
+                partial(func, *args),
             )
 
         def shutdown(self) -> None:
@@ -276,6 +277,7 @@ async def run_in_subinterpreter(func: Callable, *args: Any) -> Any:  # type: ign
 #    older  → uvloop if available, else stdlib
 # ───────────────────────────────────────────────────────────────────────
 
+
 def install_event_loop() -> str:
     """Install the fastest available event loop and return its name.
 
@@ -283,9 +285,11 @@ def install_event_loop() -> str:
     """
     try:
         import uvloop
+
         if _PY312_PLUS:
             # uvloop.install() is deprecated on 3.12+; set the policy instead
             import asyncio
+
             asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
         else:
             uvloop.install()

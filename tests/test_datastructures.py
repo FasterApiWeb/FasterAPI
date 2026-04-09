@@ -1,7 +1,6 @@
 """UploadFile and FormData helpers."""
 
 import pytest
-
 from FasterAPI.datastructures import FormData, UploadFile
 
 

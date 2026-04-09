@@ -49,13 +49,10 @@ class UploadFile:
         return self._size
 
     def __repr__(self) -> str:
-        return (
-            f"UploadFile(filename={self.filename!r}, "
-            f"content_type={self.content_type!r})"
-        )
+        return f"UploadFile(filename={self.filename!r}, content_type={self.content_type!r})"
 
 
-class FormData(dict):
+class FormData(dict[str, Any]):
     """Dict subclass for form data that may contain UploadFile values."""
 
     async def close(self) -> None:

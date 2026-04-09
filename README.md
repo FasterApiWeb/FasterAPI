@@ -1,12 +1,14 @@
 # FasterAPI
 
-[![PyPI version](https://img.shields.io/pypi/v/faster-api-web.svg)](https://pypi.org/project/faster-api-web/)
+[![PyPI version](https://img.shields.io/pypi/v/faster-api-web.svg?logo=pypi&logoColor=white)](https://pypi.org/project/faster-api-web/)
+[![GitHub release](https://img.shields.io/github/v/release/FasterApiWeb/FasterAPI?include_prereleases&sort=semver&logo=github&label=release)](https://github.com/FasterApiWeb/FasterAPI/releases)
 [![PyPI - Python](https://img.shields.io/pypi/pyversions/faster-api-web.svg)](https://pypi.org/project/faster-api-web/)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/faster-api-web.svg)](https://pypi.org/project/faster-api-web/)
-[![CI](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml)
-[![Benchmark](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml/badge.svg)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml)
-[![Docs](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/docs.yml/badge.svg)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/docs.yml)
-[![Documentation site](https://img.shields.io/badge/docs-GitHub%20Pages-5c6bc0)](https://fasterapiweb.github.io/FasterAPI/)
+[![CI](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/ci.yml?query=branch%3Amaster)
+[![Benchmark](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml/badge.svg?branch=master)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/benchmark.yml?query=branch%3Amaster)
+[![Docs workflow](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/docs.yml/badge.svg?branch=master)](https://github.com/FasterApiWeb/FasterAPI/actions/workflows/docs.yml?query=branch%3Amaster)
+[![Docs site live](https://img.shields.io/website?url=https%3A%2F%2Ffasterapiweb.github.io%2FFasterAPI%2F&up_message=online&down_message=offline&label=docs%20site)](https://fasterapiweb.github.io/FasterAPI/)
+[![Documentation](https://img.shields.io/badge/docs-GitHub%20Pages-5c6bc0?logo=githubpages)](https://fasterapiweb.github.io/FasterAPI/)
 [![codecov](https://codecov.io/gh/FasterApiWeb/FasterAPI/branch/master/graph/badge.svg)](https://codecov.io/gh/FasterApiWeb/FasterAPI)
 [![License: MIT](https://img.shields.io/github/license/FasterApiWeb/FasterAPI)](LICENSE)
 [![Docker](https://img.shields.io/badge/docker-ghcr.io-blue?logo=docker)](https://ghcr.io/fasterapiweb/fasterapi)
@@ -154,6 +156,8 @@ pip install -e ".[dev]"
 ## Documentation
 
 Tutorials and reference are published from the `docs/` folder with **MkDocs** — same topics as in this README, with **Python 3.13** as the primary target and a dedicated **[compatibility](https://fasterapiweb.github.io/FasterAPI/python-313/)** page for 3.10–3.12.
+
+The live site is deployed by the **[Docs workflow](.github/workflows/docs.yml)** to **GitHub Pages**. In the repository **Settings → Pages → Build and deployment**, the **source must be “GitHub Actions”** (not the legacy `gh-pages` branch); otherwise the published URL can 404 even when the workflow succeeds.
 
 ---
 

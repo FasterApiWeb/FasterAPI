@@ -1,7 +1,6 @@
 """HTTP and validation exception types and default handlers."""
 
 import pytest
-
 from FasterAPI.exceptions import (
     HTTPException,
     RequestValidationError,
@@ -35,10 +34,12 @@ async def test_default_http_handler_with_headers():
 
 @pytest.mark.asyncio
 async def test_validation_handler_shapes_errors():
-    exc = RequestValidationError([
-        {"loc": ["query", "q"], "msg": "missing", "type": "value_error"},
-        {"loc": [], "msg": "x"},
-    ])
+    exc = RequestValidationError(
+        [
+            {"loc": ["query", "q"], "msg": "missing", "type": "value_error"},
+            {"loc": [], "msg": "x"},
+        ]
+    )
     status, body, hdrs = await _default_validation_exception_handler(None, exc)
     assert status == 422
     assert b"query" in body

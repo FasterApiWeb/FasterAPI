@@ -1,8 +1,6 @@
 """TestClient HTTP and WebSocket paths."""
 
-import msgspec
 import pytest
-
 from FasterAPI import Faster
 from FasterAPI.testclient import TestClient
 

@@ -4,9 +4,15 @@ site_url: https://fasterapiweb.github.io/FasterAPI/
 repo_url: https://github.com/FasterApiWeb/FasterAPI
 repo_name: FasterApiWeb/FasterAPI
 edit_uri: edit/master/docs/
+site_author: Eshwar Chandra Vidhyasagar Thedla
+
+# Project pages live under /FasterAPI/; site_url must match Settings → Pages URL.
+use_directory_urls: true
 
 theme:
   name: material
+  icon:
+    repo: fontawesome/brands/github
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -45,6 +51,15 @@ markdown_extensions:
   - admonition
   - toc:
       permalink: true
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/FasterApiWeb/FasterAPI
+      name: Source on GitHub
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/faster-api-web/
+      name: PyPI faster-api-web
 
 plugins:
   - search

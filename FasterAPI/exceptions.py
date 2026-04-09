@@ -34,29 +34,31 @@ class RequestValidationError(Exception):
 
 # --- Default exception handlers ---
 
+
 async def _default_http_exception_handler(
-    request: Any, exc: HTTPException,
+    request: Any,
+    exc: HTTPException,
 ) -> tuple[int, bytes, list[tuple[bytes, bytes]]]:
     body = msgspec.json.encode({"detail": exc.detail})
     headers: list[tuple[bytes, bytes]] = [(b"content-type", b"application/json")]
     if exc.headers:
-        headers.extend(
-            (k.lower().encode("latin-1"), v.encode("latin-1"))
-            for k, v in exc.headers.items()
-        )
+        headers.extend((k.lower().encode("latin-1"), v.encode("latin-1")) for k, v in exc.headers.items())
     return exc.status_code, body, headers
 
 
 async def _default_validation_exception_handler(
-    request: Any, exc: RequestValidationError,
+    request: Any,
+    exc: RequestValidationError,
 ) -> tuple[int, bytes, list[tuple[bytes, bytes]]]:
     detail = []
     for err in exc.errors:
-        detail.append({
-            "loc": err.get("loc", []),
-            "msg": err.get("msg", ""),
-            "type": err.get("type", "value_error"),
-        })
+        detail.append(
+            {
+                "loc": err.get("loc", []),
+                "msg": err.get("msg", ""),
+                "type": err.get("type", "value_error"),
+            }
+        )
     body = msgspec.json.encode({"detail": detail})
     headers: list[tuple[bytes, bytes]] = [(b"content-type", b"application/json")]
     return 422, body, headers

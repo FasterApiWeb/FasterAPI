@@ -1,15 +1,12 @@
-import asyncio
-
 import msgspec
 import pytest
-
 from FasterAPI.dependencies import Depends, _resolve_handler
-from FasterAPI.exceptions import HTTPException, RequestValidationError
+from FasterAPI.exceptions import RequestValidationError
 from FasterAPI.params import Body, Cookie, Header, Path, Query
 from FasterAPI.request import Request
 
-
 # --------------- helpers ---------------
+
 
 def _make_request(
     *,
@@ -45,6 +42,7 @@ def _make_request(
 #  Request injection
 # ==============================
 
+
 class TestRequestInjection:
     @pytest.mark.asyncio
     async def test_inject_request(self):
@@ -59,6 +57,7 @@ class TestRequestInjection:
 # ==============================
 #  Path params
 # ==============================
+
 
 class TestPathParams:
     @pytest.mark.asyncio
@@ -93,6 +92,7 @@ class TestPathParams:
 # ==============================
 #  Query params
 # ==============================
+
 
 class TestQueryParams:
     @pytest.mark.asyncio
@@ -136,6 +136,7 @@ class TestQueryParams:
 #  Header params
 # ==============================
 
+
 class TestHeaderParams:
     @pytest.mark.asyncio
     async def test_header(self):
@@ -178,6 +179,7 @@ class TestHeaderParams:
 #  Cookie params
 # ==============================
 
+
 class TestCookieParams:
     @pytest.mark.asyncio
     async def test_cookie(self):
@@ -201,6 +203,7 @@ class TestCookieParams:
 # ==============================
 #  Body / msgspec.Struct
 # ==============================
+
 
 class Item(msgspec.Struct):
     name: str
@@ -251,6 +254,7 @@ class TestBodyParams:
 # ==============================
 #  Depends()
 # ==============================
+
 
 class TestDepends:
     @pytest.mark.asyncio
@@ -355,6 +359,7 @@ class TestDepends:
 #  Sync handlers
 # ==============================
 
+
 class TestSyncHandlers:
     @pytest.mark.asyncio
     async def test_sync_handler(self):
@@ -369,6 +374,7 @@ class TestSyncHandlers:
 # ==============================
 #  Combined params
 # ==============================
+
 
 class TestCombinedParams:
     @pytest.mark.asyncio
