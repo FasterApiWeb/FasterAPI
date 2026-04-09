@@ -14,6 +14,7 @@ from typing import Any, Callable, Sequence
 
 import msgspec.json
 
+from ._version import get_version
 from .concurrency import install_event_loop
 from .dependencies import _resolve_handler, compile_handler
 from .exceptions import (
@@ -56,14 +57,14 @@ class Faster:
         self,
         *,
         title: str = "FasterAPI",
-        version: str = "0.1.1",
+        version: str | None = None,
         description: str = "",
         openapi_url: str | None = "/openapi.json",
         docs_url: str | None = "/docs",
         redoc_url: str | None = "/redoc",
     ) -> None:
         self.title = title
-        self.version = version
+        self.version = version if version is not None else get_version()
         self.description = description
         self.openapi_url = openapi_url
         self.docs_url = docs_url
