@@ -1,0 +1,80 @@
+name: Feature Request
+description: Suggest a new feature or improvement for FasterAPI
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea to make FasterAPI better? We'd love to hear it.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of FasterAPI does this relate to?
+      options:
+        - Routing
+        - Dependency Injection
+        - Middleware
+        - Request / Response
+        - WebSocket
+        - OpenAPI / Docs
+        - Serialization (msgspec)
+        - Concurrency / Sub-interpreters
+        - Testing
+        - CLI / Tooling
+        - Performance
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Is it related to a frustration?
+      placeholder: "I'm always frustrated when..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe the feature or behavior you'd like.
+    validations:
+      required: true
+
+  - type: textarea
+    id: api
+    attributes:
+      label: API Design (if applicable)
+      description: What would the developer-facing API look like?
+      render: python
+      placeholder: |
+        @app.get("/items", cache_ttl=60)
+        async def list_items():
+            return await db.fetch_all()
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Any other approaches you've considered.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: contribution
+    attributes:
+      label: Would you be willing to submit a PR?
+      options:
+        - "Yes"
+        - "Yes, with guidance"
+        - "No"
+    validations:
+      required: true

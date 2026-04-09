@@ -168,7 +168,7 @@ jobs:
             | `GET /users/{id}` | **282,835 req/s** | 32,391 req/s | **8.73x** |
             | `POST /users` | **193,225 req/s** | 27,031 req/s | **7.15x** |
 
-            [Full benchmarks →](https://github.com/EshwarCVS/FasterAPI#benchmarks)
+            [Full benchmarks →](https://github.com/FasterApiWeb/FasterAPI#benchmarks)
 
             ---
 
@@ -182,5 +182,5 @@ jobs:
             ## Docker
 
             ```bash
-            docker pull ghcr.io/eshwarcvs/fasterapi:latest
+            docker pull ghcr.io/fasterapiweb/fasterapi:latest
             ```

@@ -14,7 +14,7 @@ Thank you for your interest in contributing! This document explains how we work.
 | Branch | Purpose | Who can push directly |
 |---|---|---|
 | `master` | Production-ready code, releases | **Nobody** — merge from `stage` via PR only |
-| `stage` | Integration / pre-release | **Maintainer only** (`@EshwarCVS`) |
+| `stage` | Integration / pre-release | **Maintainer only** (`@EshwarCVS` / `@FasterApiWeb`) |
 | `dev/*` | Your feature or bugfix branch | You |
 
 ### Rules
@@ -38,7 +38,7 @@ Thank you for your interest in contributing! This document explains how we work.
 
 ```bash
 # Clone and set up
-git clone https://github.com/EshwarCVS/FasterAPI.git
+git clone https://github.com/FasterApiWeb/FasterAPI.git
 cd FasterAPI
 python -m venv .venv
 source .venv/bin/activate
