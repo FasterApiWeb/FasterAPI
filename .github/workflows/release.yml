@@ -162,7 +162,7 @@ jobs:
 
       - name: Normalize repo name to lowercase
         id: repo
-        run: echo "repo_lc=${GITHUB_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]' | awk '{print "repo_lc="$0}' >> "$GITHUB_OUTPUT"
+        run: echo "repo_lc=$(echo "${GITHUB_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v6
