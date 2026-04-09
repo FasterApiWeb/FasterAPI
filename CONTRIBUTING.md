@@ -34,6 +34,7 @@ For **security-sensitive** reports, use the process in [SECURITY.md](SECURITY.md
 6. At least **one approval** is required before merging to `stage`, when reviewers are available.
 7. Periodically, a maintainer opens a PR from **`stage` → `master`** to cut a release.
 8. **Releases** are **git tags** on `master` (`v0.2.0`, …), which trigger PyPI + Docker + GitHub Releases. The **PyPI version is taken from the tag** (see `hatch-vcs` in `pyproject.toml`) — **do not** rely on editing a static `version =` in `pyproject.toml` for releases.
+9. If you want a merge to `master` to cut a release automatically, add one label on the `stage` → `master` PR: `release:patch`, `release:minor`, or `release:major`. The auto-tag workflow will create the next `vX.Y.Z` tag from that label.
 
 ---
 
