@@ -1,0 +1,73 @@
+name: Auto Tag Release
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    if: >
+      github.event.pull_request.merged == true &&
+      (
+        contains(github.event.pull_request.labels.*.name, 'release:patch') ||
+        contains(github.event.pull_request.labels.*.name, 'release:minor') ||
+        contains(github.event.pull_request.labels.*.name, 'release:major')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine next version tag
+        id: bump
+        env:
+          LABELS_JSON: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          LABELS="${LABELS_JSON}"
+          BUMP="patch"
+          if [[ "$LABELS" == *"release:major"* ]]; then
+            BUMP="major"
+          elif [[ "$LABELS" == *"release:minor"* ]]; then
+            BUMP="minor"
+          fi
+
+          LAST_TAG="$(git tag -l 'v*' --sort=-v:refname | sed -n '1p')"
+          if [ -z "$LAST_TAG" ]; then
+            LAST_TAG="v0.0.0"
+          fi
+
+          VERSION="${LAST_TAG#v}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+
+          if [ "$BUMP" = "major" ]; then
+            MAJOR=$((MAJOR + 1))
+            MINOR=0
+            PATCH=0
+          elif [ "$BUMP" = "minor" ]; then
+            MINOR=$((MINOR + 1))
+            PATCH=0
+          else
+            PATCH=$((PATCH + 1))
+          fi
+
+          NEXT_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          echo "last_tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
+          echo "next_tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Create and push tag
+        env:
+          NEXT_TAG: ${{ steps.bump.outputs.next_tag }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          if git rev-parse "$NEXT_TAG" >/dev/null 2>&1; then
+            echo "Tag already exists: $NEXT_TAG"
+            exit 0
+          fi
+
+          git tag "$NEXT_TAG" "$MERGE_SHA"
+          git push origin "$NEXT_TAG"
