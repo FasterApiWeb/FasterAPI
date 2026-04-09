@@ -17,20 +17,23 @@ Thank you for your interest in contributing! This document explains how we work.
 | `stage` | Integration / pre-release | **Maintainer only** (`@EshwarCVS` / `@FasterApiWeb`) |
 | `dev/*` | Your feature or bugfix branch | You |
 
+For **security-sensitive** reports, use the process in [SECURITY.md](SECURITY.md) instead of a public issue.
+
 ### Rules
 
 1. **Never push directly to `master` or `stage`.**
-2. Create your branch from `stage`:
+2. Create your branch from **`stage`** (never from an outdated `master` without syncing):
    ```bash
    git checkout stage
    git pull origin stage
    git checkout -b dev/my-feature
    ```
-3. Open a PR from your branch → `stage`.
-4. CI (tests on Python 3.10–3.13 + benchmarks) must pass.
-5. At least 1 approval is required before merging to `stage`.
-6. Periodically, the maintainer opens a PR from `stage` → `master` for releases.
-7. Releases are tagged on `master` (`v0.2.0`, etc.), which triggers PyPI + Docker publishing.
+3. Commit with **clear messages** (what changed and why in one line; optional scope prefix, e.g. `docs:`, `bench:`).
+4. Open a **pull request from your branch → `stage`** (that is the default integration flow for new code).
+5. CI (tests on Python 3.10–3.13 + benchmarks on PRs) must pass.
+6. At least **one approval** is required before merging to `stage`, when reviewers are available.
+7. Periodically, a maintainer opens a PR from **`stage` → `master`** to cut a release.
+8. **Releases** are **git tags** on `master` (`v0.2.0`, …), which trigger PyPI + Docker + GitHub Releases. The **PyPI version is taken from the tag** (see `hatch-vcs` in `pyproject.toml`) — **do not** rely on editing a static `version =` in `pyproject.toml` for releases.
 
 ---
 
@@ -58,7 +61,7 @@ python benchmarks/compare.py --direct
 
 Before opening a PR, verify:
 
-- [ ] All tests pass: `pytest`
+- [ ] All tests pass: `pytest --cov=FasterAPI --cov-report=term-missing --cov-fail-under=85`
 - [ ] No regressions in benchmark speedup ratios
 - [ ] New features include tests
 - [ ] Code follows existing patterns (`__slots__`, type hints, no unnecessary comments)
@@ -93,7 +96,19 @@ A PR with a 🔴 benchmark regression will need justification before merging.
    ```
 3. The release workflow automatically:
    - Runs full test suite
-   - Builds wheel + sdist
+   - Builds wheel + sdist (**version = git tag**, via **hatch-vcs**)
    - Publishes to PyPI (`faster-api-web`)
    - Pushes Docker image to `ghcr.io`
    - Creates a GitHub Release with artifacts
+
+---
+
+## Listing on Awesome Python
+
+The [awesome-python](https://github.com/vinta/awesome-python) list has **strict** entry rules (activity, documentation, uniqueness). When the project meets [their CONTRIBUTING criteria](https://github.com/vinta/awesome-python/blob/master/CONTRIBUTING.md), a maintainer can propose a PR under **Web Frameworks** using the **PyPI name** as the title:
+
+```markdown
+- [faster-api-web](https://github.com/FasterApiWeb/FasterAPI) - High-performance ASGI web framework; FastAPI-like API with msgspec and radix routing.
+```
+
+One project per PR; follow their alphabetical order and description style (ends with a period). If a submission is premature, wait until the repo satisfies **Stable** / **Established** / stars thresholds in their guide.
