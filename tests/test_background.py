@@ -1,9 +1,6 @@
 """Background task execution."""
 
-import asyncio
-
 import pytest
-
 from FasterAPI.background import BackgroundTask, BackgroundTasks
 
 

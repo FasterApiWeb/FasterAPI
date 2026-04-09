@@ -1,13 +1,10 @@
-import asyncio
-
 import msgspec
 import pytest
-
 from FasterAPI.app import Faster
 from FasterAPI.websocket import WebSocket, WebSocketDisconnect, WebSocketState
 
-
 # --------------- helpers ---------------
+
 
 class MockWebSocketTransport:
     """Simulates the ASGI websocket protocol for testing."""
@@ -58,6 +55,7 @@ def _ws_scope(
 #  WebSocket constructor & props
 # ==============================
 
+
 class TestWebSocketProperties:
     def test_path_and_params(self):
         scope = _ws_scope(path="/chat")
@@ -101,6 +99,7 @@ class TestWebSocketProperties:
 #  accept
 # ==============================
 
+
 class TestWebSocketAccept:
     @pytest.mark.asyncio
     async def test_accept(self):
@@ -130,12 +129,15 @@ class TestWebSocketAccept:
 #  send / receive text
 # ==============================
 
+
 class TestWebSocketText:
     @pytest.mark.asyncio
     async def test_send_receive_text(self):
-        transport = MockWebSocketTransport(to_receive=[
-            {"type": "websocket.receive", "text": "hello"},
-        ])
+        transport = MockWebSocketTransport(
+            to_receive=[
+                {"type": "websocket.receive", "text": "hello"},
+            ]
+        )
         ws = WebSocket(_ws_scope(), transport.receive, transport.send)
         text = await ws.receive_text()
         assert text == "hello"
@@ -145,9 +147,11 @@ class TestWebSocketText:
 
     @pytest.mark.asyncio
     async def test_receive_empty_text(self):
-        transport = MockWebSocketTransport(to_receive=[
-            {"type": "websocket.receive"},
-        ])
+        transport = MockWebSocketTransport(
+            to_receive=[
+                {"type": "websocket.receive"},
+            ]
+        )
         ws = WebSocket(_ws_scope(), transport.receive, transport.send)
         text = await ws.receive_text()
         assert text == ""
@@ -157,12 +161,15 @@ class TestWebSocketText:
 #  send / receive bytes
 # ==============================
 
+
 class TestWebSocketBytes:
     @pytest.mark.asyncio
     async def test_send_receive_bytes(self):
-        transport = MockWebSocketTransport(to_receive=[
-            {"type": "websocket.receive", "bytes": b"\x00\x01"},
-        ])
+        transport = MockWebSocketTransport(
+            to_receive=[
+                {"type": "websocket.receive", "bytes": b"\x00\x01"},
+            ]
+        )
         ws = WebSocket(_ws_scope(), transport.receive, transport.send)
         data = await ws.receive_bytes()
         assert data == b"\x00\x01"
@@ -175,13 +182,16 @@ class TestWebSocketBytes:
 #  send / receive json
 # ==============================
 
+
 class TestWebSocketJson:
     @pytest.mark.asyncio
     async def test_send_receive_json(self):
         payload = msgspec.json.encode({"key": "value"}).decode()
-        transport = MockWebSocketTransport(to_receive=[
-            {"type": "websocket.receive", "text": payload},
-        ])
+        transport = MockWebSocketTransport(
+            to_receive=[
+                {"type": "websocket.receive", "text": payload},
+            ]
+        )
         ws = WebSocket(_ws_scope(), transport.receive, transport.send)
         data = await ws.receive_json()
         assert data == {"key": "value"}
@@ -202,6 +212,7 @@ class TestWebSocketJson:
 # ==============================
 #  close & disconnect
 # ==============================
+
 
 class TestWebSocketCloseDisconnect:
     @pytest.mark.asyncio
@@ -227,9 +238,11 @@ class TestWebSocketCloseDisconnect:
 
     @pytest.mark.asyncio
     async def test_disconnect_raises(self):
-        transport = MockWebSocketTransport(to_receive=[
-            {"type": "websocket.disconnect", "code": 1001},
-        ])
+        transport = MockWebSocketTransport(
+            to_receive=[
+                {"type": "websocket.disconnect", "code": 1001},
+            ]
+        )
         ws = WebSocket(_ws_scope(), transport.receive, transport.send)
         with pytest.raises(WebSocketDisconnect) as exc_info:
             await ws.receive_text()
@@ -238,9 +251,11 @@ class TestWebSocketCloseDisconnect:
 
     @pytest.mark.asyncio
     async def test_disconnect_default_code(self):
-        transport = MockWebSocketTransport(to_receive=[
-            {"type": "websocket.disconnect"},
-        ])
+        transport = MockWebSocketTransport(
+            to_receive=[
+                {"type": "websocket.disconnect"},
+            ]
+        )
         ws = WebSocket(_ws_scope(), transport.receive, transport.send)
         with pytest.raises(WebSocketDisconnect) as exc_info:
             await ws.receive_bytes()
@@ -250,6 +265,7 @@ class TestWebSocketCloseDisconnect:
 # ==============================
 #  App integration
 # ==============================
+
 
 class TestWebSocketApp:
     @pytest.mark.asyncio
@@ -263,9 +279,11 @@ class TestWebSocketApp:
             await ws.send_text(f"echo: {text}")
             await ws.close()
 
-        transport = MockWebSocketTransport(to_receive=[
-            {"type": "websocket.receive", "text": "ping"},
-        ])
+        transport = MockWebSocketTransport(
+            to_receive=[
+                {"type": "websocket.receive", "text": "ping"},
+            ]
+        )
         await app(_ws_scope("/ws"), transport.receive, transport.send)
 
         assert transport.accepted()
@@ -309,9 +327,11 @@ class TestWebSocketApp:
             await ws.close()
 
         payload = msgspec.json.encode({"msg": "hi"}).decode()
-        transport = MockWebSocketTransport(to_receive=[
-            {"type": "websocket.receive", "text": payload},
-        ])
+        transport = MockWebSocketTransport(
+            to_receive=[
+                {"type": "websocket.receive", "text": payload},
+            ]
+        )
         await app(_ws_scope("/api"), transport.receive, transport.send)
 
         sent = msgspec.json.decode(transport.sent_texts()[0].encode())
@@ -355,12 +375,14 @@ class TestWebSocketApp:
             except WebSocketDisconnect:
                 pass
 
-        transport = MockWebSocketTransport(to_receive=[
-            {"type": "websocket.receive", "text": "first"},
-            {"type": "websocket.receive", "text": "second"},
-            {"type": "websocket.receive", "text": "third"},
-            {"type": "websocket.disconnect", "code": 1000},
-        ])
+        transport = MockWebSocketTransport(
+            to_receive=[
+                {"type": "websocket.receive", "text": "first"},
+                {"type": "websocket.receive", "text": "second"},
+                {"type": "websocket.receive", "text": "third"},
+                {"type": "websocket.disconnect", "code": 1000},
+            ]
+        )
         await app(_ws_scope("/chat"), transport.receive, transport.send)
 
         assert transport.sent_texts() == ["reply: first", "reply: second", "reply: third"]

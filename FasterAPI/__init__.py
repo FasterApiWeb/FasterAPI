@@ -6,7 +6,7 @@ radix-tree routing, uvloop, and Python 3.13 sub-interpreters.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ._version import get_version
 
@@ -94,7 +94,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     if name == "TestClient":
         try:
             from .testclient import TestClient as _TestClient

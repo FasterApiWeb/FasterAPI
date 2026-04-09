@@ -2,7 +2,6 @@ import gzip
 
 import msgspec
 import pytest
-
 from FasterAPI.app import Faster
 from FasterAPI.middleware import (
     CORSMiddleware,
@@ -11,8 +10,8 @@ from FasterAPI.middleware import (
     TrustedHostMiddleware,
 )
 
-
 # --------------- helpers ---------------
+
 
 class MockSend:
     def __init__(self):
@@ -90,6 +89,7 @@ def _make_big_app() -> Faster:
 # ==============================
 #  CORS Middleware
 # ==============================
+
 
 class TestCORSBasic:
     @pytest.mark.asyncio
@@ -210,6 +210,7 @@ class TestCORSCredentials:
 #  GZip Middleware
 # ==============================
 
+
 class TestGZipMiddleware:
     @pytest.mark.asyncio
     async def test_gzip_compresses_large_response(self):
@@ -276,6 +277,7 @@ class TestGZipMiddleware:
 #  TrustedHost Middleware
 # ==============================
 
+
 class TestTrustedHostMiddleware:
     @pytest.mark.asyncio
     async def test_allowed_host(self):
@@ -326,6 +328,7 @@ class TestTrustedHostMiddleware:
 #  HTTPS Redirect Middleware
 # ==============================
 
+
 class TestHTTPSRedirectMiddleware:
     @pytest.mark.asyncio
     async def test_http_redirects(self):
@@ -358,6 +361,7 @@ class TestHTTPSRedirectMiddleware:
 #  Middleware chain
 # ==============================
 
+
 class TestMiddlewareChain:
     @pytest.mark.asyncio
     async def test_chain_is_cached(self):
@@ -383,10 +387,12 @@ class TestMiddlewareChain:
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=["example.com"])
 
         send = MockSend()
-        scope = _make_scope(headers=[
-            (b"origin", b"http://example.com"),
-            (b"host", b"example.com"),
-        ])
+        scope = _make_scope(
+            headers=[
+                (b"origin", b"http://example.com"),
+                (b"host", b"example.com"),
+            ]
+        )
         await app(scope, _receive, send)
 
         assert send.status == 200
