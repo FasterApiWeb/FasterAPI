@@ -4,7 +4,7 @@ Drop-in FastAPI replacement powered by msgspec (Rust-backed JSON),
 radix-tree routing, uvloop, and Python 3.13 sub-interpreters.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 
 from .app import Faster
 from .background import BackgroundTask, BackgroundTasks
