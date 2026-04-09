@@ -22,6 +22,14 @@ jobs:
     permissions:
       contents: read
     steps:
+      - name: Verify TestPyPI token is configured
+        run: |
+          if [ -z "${{ secrets.TEST_PYPI_API_TOKEN }}" ]; then
+            echo "::error::Missing secret TEST_PYPI_API_TOKEN (Settings → Secrets and variables → Actions)."
+            echo "Create an API token on TestPyPI for the `faster-api-web` project and add it as TEST_PYPI_API_TOKEN."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
