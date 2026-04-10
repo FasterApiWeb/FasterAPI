@@ -2,9 +2,9 @@ name: Benchmark
 
 on:
   push:
-    branches: [stage]
+    branches: [dev, stage, master]
   pull_request:
-    branches: [master, stage]
+    branches: [master, stage, dev]
 
 permissions:
   contents: read
@@ -74,6 +74,11 @@ jobs:
               return `${pct}%`;
             }
 
+            function pctChange(current, base) {
+              if (base === undefined || base === 0 || current === undefined || current === null) return null;
+              return ((current - base) / base) * 100;
+            }
+
             function reqCell(n) {
               if (n === undefined || n === null) return '—';
               return `${Math.round(n).toLocaleString()}/s`;
@@ -107,9 +112,34 @@ jobs:
             `;
             }
 
+            const checks = [
+              { name: 'ASGI GET /health speedup', change: pctChange(asgi?.health?.speedup, baseline.asgi_speedup.health) },
+              { name: 'ASGI GET /users/{id} speedup', change: pctChange(asgi?.users_get?.speedup, baseline.asgi_speedup.users_get) },
+              { name: 'ASGI POST /users speedup', change: pctChange(asgi?.users_post?.speedup, baseline.asgi_speedup.users_post) },
+              { name: 'Routing radix speedup', change: pctChange(routing?.speedup, baseline.routing_speedup) },
+            ];
+
+            const regressions = checks.filter(c => c.change !== null && c.change <= -5);
+            const improvements = checks.filter(c => c.change !== null && c.change >= 2);
+
+            let statusLine = '⚪ Benchmark status: stable (within tolerance).';
+            if (regressions.length > 0) {
+              statusLine = '🔴 Benchmark status: regression detected (>= 5% slower). **Do not merge this PR until fixed.**';
+            } else if (improvements.length > 0) {
+              statusLine = '🟢 Benchmark status: improvement detected.';
+            }
+
+            const regressionList = regressions.length
+              ? `\n\n### Regression details\n${regressions
+                  .map(r => `- ${r.name}: ${r.change.toFixed(1)}% vs README baseline`)
+                  .join('\n')}`
+              : '';
+
             const body = `## Benchmark results
 
             > Ubuntu runner, Python 3.13. **HTTP table** uses the same httpx load against uvicorn (Python) and Fiber (Go). **Direct ASGI** (below) is Python-only and excludes network I/O.
+
+            ${statusLine}${regressionList}
 
             ### HTTP throughput (FasterAPI vs FastAPI vs Fiber)
 
@@ -154,4 +184,8 @@ jobs:
                 issue_number: context.issue.number,
                 body: body,
               });
+            }
+
+            if (regressions.length > 0) {
+              core.setFailed(`Benchmark regression >=5% detected in ${regressions.length} metric(s).`);
             }
