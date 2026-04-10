@@ -169,6 +169,15 @@ which builds the wheel/sdist (version comes from the tag via **hatch-vcs**), pub
 and creates a GitHub Release. **You do not bump a hardcoded version in `pyproject.toml` for releases**
 — tag the commit you want to ship.
 
+For branch-channel previews, merges to `dev`, `stage`, and `master` publish to **TestPyPI** with valid
+PEP 440 channel versions:
+- `dev` branch: `0.0.0.devN`
+- `stage` branch: `0.0.0aN`
+- `master` branch preview: `0.0.0rcN`
+
+Release intent is controlled by PR labels (`release:patch`, `release:minor`, `release:major`) which
+drive automatic tag creation on merge.
+
 ---
 
 ## Quick Start
@@ -474,6 +483,24 @@ uvicorn examples.full_crud_app:app --reload
 
 > Python 3.13.7, macOS, Apple Silicon (M-series).
 > Reproduce with `python benchmarks/compare.py --direct`.
+
+<!-- AUTO_BENCHMARKS_START -->
+
+### Auto-updated branch benchmark snapshot (CI)
+
+| Endpoint | FasterAPI | FastAPI | Speedup |
+|---|---|---|---|
+| `GET /health` | **335,612 req/s** | 49,005 req/s | **6.85x** |
+| `GET /users/{id}` | **282,835 req/s** | 32,391 req/s | **8.73x** |
+| `POST /users` | **193,225 req/s** | 27,031 req/s | **7.15x** |
+
+| Routing | Radix ops/s | Regex ops/s | Speedup |
+|---|---|---|---|
+| 100-route lookup | **1,104,318** | 144,822 | **7.6x** |
+
+_This block is updated automatically on pushes to `dev`, `stage`, and `master`._
+
+<!-- AUTO_BENCHMARKS_END -->
 
 ### Framework-Level Benchmark (Direct ASGI)
 

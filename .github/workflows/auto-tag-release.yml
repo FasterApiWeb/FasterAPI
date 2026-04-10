@@ -3,7 +3,7 @@ name: Auto Tag Release
 on:
   pull_request:
     types: [closed]
-    branches: [master]
+    branches: [master, stage, dev]
 
 permissions:
   contents: write
@@ -36,12 +36,20 @@ jobs:
             BUMP="minor"
           fi
 
-          LAST_TAG="$(git tag -l 'v*' --sort=-v:refname | sed -n '1p')"
-          if [ -z "$LAST_TAG" ]; then
-            LAST_TAG="v0.0.0"
+          BASE_PREFIX="v"
+          TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
+          if [ "$TARGET_BRANCH" = "stage" ]; then
+            BASE_PREFIX="stage-v"
+          elif [ "$TARGET_BRANCH" = "dev" ]; then
+            BASE_PREFIX="dev-v"
           fi
 
-          VERSION="${LAST_TAG#v}"
+          LAST_TAG="$(git tag -l "${BASE_PREFIX}*" --sort=-v:refname | sed -n '1p')"
+          if [ -z "$LAST_TAG" ]; then
+            LAST_TAG="${BASE_PREFIX}0.0.0"
+          fi
+
+          VERSION="${LAST_TAG#${BASE_PREFIX}}"
           IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
 
           if [ "$BUMP" = "major" ]; then
@@ -55,7 +63,7 @@ jobs:
             PATCH=$((PATCH + 1))
           fi
 
-          NEXT_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          NEXT_TAG="${BASE_PREFIX}${MAJOR}.${MINOR}.${PATCH}"
           echo "last_tag=$LAST_TAG" >> "$GITHUB_OUTPUT"
           echo "next_tag=$NEXT_TAG" >> "$GITHUB_OUTPUT"
 
