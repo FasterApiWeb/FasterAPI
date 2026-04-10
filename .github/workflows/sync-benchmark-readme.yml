@@ -1,0 +1,51 @@
+name: Sync Benchmark README
+
+on:
+  push:
+    branches: [dev, stage, master]
+
+permissions:
+  contents: write
+
+jobs:
+  update-readme:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -e ".[dev,benchmark]"
+
+      - name: Build Go Fiber benchmark server
+        working-directory: benchmarks/fiber
+        run: go mod tidy && go build -o fiberbench .
+
+      - name: Generate benchmark artifacts
+        run: |
+          python benchmarks/export_pr_benchmarks.py
+          python benchmarks/update_readme_benchmarks.py
+
+      - name: Commit README benchmark snapshot
+        run: |
+          if git diff --quiet -- README.md; then
+            echo "README benchmark block unchanged"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add README.md
+          git commit -m "docs(bench): sync README benchmark snapshot [skip ci]"
+          git push origin HEAD:${GITHUB_REF_NAME}
