@@ -4,7 +4,6 @@ import json
 import re
 from pathlib import Path
 
-
 README_PATH = Path("README.md")
 BENCH_JSON = Path("bench_results.json")
 ROUTING_JSON = Path("routing_results.json")
