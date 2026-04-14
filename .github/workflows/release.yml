@@ -3,7 +3,6 @@ name: Release
 on:
   push:
     branches:
-      - master
       - stage
       - dev
     tags:
@@ -17,10 +16,10 @@ permissions:
 jobs:
   # ── Publish channel builds to TestPyPI on branch merges ───────────────
   # Channel mapping:
-  # - dev    -> 0.0.0.devN
-  # - stage  -> 0.0.0aN
-  # - master -> 0.0.0rcN
-  # Stable PyPI releases remain tag-based (vX.Y.Z).
+  # - dev    -> 0.0.0.devN  (TestPyPI)
+  # - stage  -> 0.0.0aN     (TestPyPI)
+  # - master -> stable vX.Y.Z via auto-tagged v* from auto-tag-release.yml (PyPI)
+  # Stable PyPI releases are tag-based (vX.Y.Z); master branch push triggers no direct publish.
   publish-testpypi-dev:
     if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
@@ -99,51 +98,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dist-stage
-          path: dist/
-
-      - name: Publish to TestPyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          repository-url: https://test.pypi.org/legacy/
-          user: __token__
-          password: ${{ secrets.TEST_PYPI_API_TOKEN }}
-          skip-existing: true
-
-  publish-testpypi-master:
-    if: github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    environment: testpypi
-    permissions:
-      contents: read
-    steps:
-      - name: Verify TestPyPI token is configured
-        run: |
-          if [ -z "${{ secrets.TEST_PYPI_API_TOKEN }}" ]; then
-            echo "::error::Missing secret TEST_PYPI_API_TOKEN (Settings → Secrets and variables → Actions)."
-            echo "Create an API token on TestPyPI for the `faster-api-web` project and add it as TEST_PYPI_API_TOKEN."
-            exit 1
-          fi
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
-      - name: Install build tools
-        run: pip install build
-
-      - name: Build channel package (master)
-        env:
-          SETUPTOOLS_SCM_PRETEND_VERSION: 0.0.0rc${{ github.run_number }}
-        run: python -m build
-
-      - name: Upload package artifact (master channel)
-        uses: actions/upload-artifact@v4
-        with:
-          name: dist-master
           path: dist/
 
       - name: Publish to TestPyPI
@@ -277,7 +231,7 @@ jobs:
 
   # ── Step 5: Create GitHub Release with artifacts ───────────────────
   github-release:
-    needs: [build, publish-pypi, publish-docker]
+    needs: [build, publish-pypi]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:

@@ -10,9 +10,12 @@ permissions:
 
 jobs:
   tag:
+    # Always fire on master merges (defaults to patch bump).
+    # Fire on stage/dev only when a release:* label is present.
     if: >
       github.event.pull_request.merged == true &&
       (
+        github.event.pull_request.base.ref == 'master' ||
         contains(github.event.pull_request.labels.*.name, 'release:patch') ||
         contains(github.event.pull_request.labels.*.name, 'release:minor') ||
         contains(github.event.pull_request.labels.*.name, 'release:major')
