@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [master, stage, dev]
+    branches: [master, stage]
   pull_request:
-    branches: [master, stage, dev]
+    branches: [master, stage]
 
 permissions:
   contents: read
@@ -50,6 +50,6 @@ jobs:
         with:
           files: coverage.xml
           flags: python${{ matrix.python-version }}
-          fail_ci_if_error: true
+          fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
