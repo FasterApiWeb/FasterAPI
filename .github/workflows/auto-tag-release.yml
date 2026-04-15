@@ -3,7 +3,7 @@ name: Auto Tag Release
 on:
   pull_request:
     types: [closed]
-    branches: [master, stage, dev]
+    branches: [master, stage]
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ permissions:
 jobs:
   tag:
     # Always fire on master merges (defaults to patch bump).
-    # Fire on stage/dev only when a release:* label is present.
+    # Fire on stage only when a release:* label is present.
     if: >
       github.event.pull_request.merged == true &&
       (
@@ -43,8 +43,6 @@ jobs:
           TARGET_BRANCH="${{ github.event.pull_request.base.ref }}"
           if [ "$TARGET_BRANCH" = "stage" ]; then
             BASE_PREFIX="stage-v"
-          elif [ "$TARGET_BRANCH" = "dev" ]; then
-            BASE_PREFIX="dev-v"
           fi
 
           LAST_TAG="$(git tag -l "${BASE_PREFIX}*" --sort=-v:refname | sed -n '1p')"
