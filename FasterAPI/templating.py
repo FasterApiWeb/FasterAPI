@@ -29,9 +29,7 @@ class Jinja2Templates:
         try:
             import jinja2
         except ImportError as exc:
-            raise ImportError(
-                "Jinja2Templates requires jinja2. Install with: pip install jinja2"
-            ) from exc
+            raise ImportError("Jinja2Templates requires jinja2. Install with: pip install jinja2") from exc
 
         self.env = jinja2.Environment(
             loader=jinja2.FileSystemLoader(str(directory)),

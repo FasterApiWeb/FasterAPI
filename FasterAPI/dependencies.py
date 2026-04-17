@@ -126,14 +126,15 @@ def compile_handler(func: Callable[..., Any]) -> tuple[tuple[_ParamSpec, ...], b
             type_hints = {}
         type_hints.pop("return", None)
         is_async = False
-    elif hasattr(func, "__call__") and not inspect.isfunction(func) and not inspect.isbuiltin(func):
-        # Callable instance (e.g. OAuth2PasswordBearer instance)
+    elif callable(func) and not inspect.isfunction(func) and not inspect.isbuiltin(func):
+        # Callable instance (e.g. OAuth2PasswordBearer instance) — use the class __call__
         sig = inspect.signature(func)
+        call_method = inspect.getattr_static(type(func), "__call__", None)
         try:
-            type_hints = typing.get_type_hints(func.__call__, include_extras=True)
+            type_hints = typing.get_type_hints(call_method, include_extras=True) if call_method else {}
         except Exception:
             type_hints = {}
-        is_async = is_coroutine(func.__call__)
+        is_async = is_coroutine(call_method) if call_method else False
     else:
         sig = inspect.signature(func)
         try:

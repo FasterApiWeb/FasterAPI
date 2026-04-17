@@ -10,12 +10,10 @@ Optimisations over a naïve implementation:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import dataclasses
-from collections.abc import AsyncGenerator, Callable, Sequence
-from contextlib import asynccontextmanager
+from collections.abc import Callable, Sequence
 from typing import Any, cast
-
-import msgspec
 
 from ._version import get_version
 from .concurrency import install_event_loop
@@ -85,7 +83,7 @@ class Faster:
         terms_of_service: str | None = None,
         contact: dict[str, str] | None = None,
         license_info: dict[str, str] | None = None,
-        lifespan: Callable[["Faster"], Any] | None = None,
+        lifespan: Callable[[Faster], Any] | None = None,
     ) -> None:
         self.title = title
         self.version = version if version is not None else get_version()
@@ -216,7 +214,7 @@ class Faster:
             for prefix, mounted_app in self._mounts:
                 if path == prefix or path.startswith(prefix + "/"):
                     sub_scope = dict(scope)
-                    sub_scope["path"] = path[len(prefix):] or "/"
+                    sub_scope["path"] = path[len(prefix) :] or "/"
                     sub_scope["root_path"] = scope.get("root_path", "") + prefix
                     await mounted_app(sub_scope, receive, send)
                     return
@@ -255,9 +253,7 @@ class Faster:
         extra_deps: list[Depends] | None = metadata.get("dependencies")
 
         try:
-            response, bg_tasks = await _resolve_handler(
-                handler, request, path_params, extra_deps
-            )
+            response, bg_tasks = await _resolve_handler(handler, request, path_params, extra_deps)
         except RequestValidationError as exc:
             status, body, headers = await self._handle_exc(
                 request,
@@ -292,9 +288,7 @@ class Faster:
         response_model_include = metadata.get("response_model_include")
         response_model_exclude = metadata.get("response_model_exclude")
         if response_model is not None and not hasattr(response, "to_asgi"):
-            response = _apply_response_model(
-                response, response_model, response_model_include, response_model_exclude
-            )
+            response = _apply_response_model(response, response_model, response_model_include, response_model_exclude)
 
         await _send_response(send, metadata.get("status_code", 200), response)
 
@@ -385,19 +379,15 @@ class Faster:
         else:
             # Treat as async generator
             gen = ctx.__aiter__() if hasattr(ctx, "__aiter__") else ctx
-            try:
+            with contextlib.suppress(StopAsyncIteration):
                 await gen.__anext__()
-            except StopAsyncIteration:
-                pass
             message = await receive()
             if message["type"] == "lifespan.startup":
                 await send({"type": "lifespan.startup.complete"})
             message = await receive()
             if message["type"] == "lifespan.shutdown":
-                try:
+                with contextlib.suppress(StopAsyncIteration):
                     await gen.__anext__()
-                except StopAsyncIteration:
-                    pass
                 await send({"type": "lifespan.shutdown.complete"})
 
     # ------------------------------------------------------------------

@@ -104,16 +104,16 @@ class OAuth2PasswordRequestForm:
         self.client_secret = client_secret
 
     @classmethod
-    async def from_request(cls, request: Request) -> "OAuth2PasswordRequestForm":
+    async def from_request(cls, request: Request) -> OAuth2PasswordRequestForm:
         """Parse form data from a request and return a populated instance."""
         form_data = await request.form()
         return cls(
-            grant_type=form_data.get("grant_type"),  # type: ignore[arg-type]
-            username=form_data.get("username", ""),  # type: ignore[arg-type]
-            password=form_data.get("password", ""),  # type: ignore[arg-type]
-            scope=form_data.get("scope", ""),  # type: ignore[arg-type]
-            client_id=form_data.get("client_id"),  # type: ignore[arg-type]
-            client_secret=form_data.get("client_secret"),  # type: ignore[arg-type]
+            grant_type=str(form_data.get("grant_type")) if form_data.get("grant_type") is not None else None,
+            username=str(form_data.get("username", "")),
+            password=str(form_data.get("password", "")),
+            scope=str(form_data.get("scope", "")),
+            client_id=str(form_data.get("client_id")) if form_data.get("client_id") is not None else None,
+            client_secret=str(form_data.get("client_secret")) if form_data.get("client_secret") is not None else None,
         )
 
 
@@ -169,9 +169,9 @@ class HTTPBasic:
         try:
             decoded = base64.b64decode(authorization[6:]).decode("latin-1")
             username, _, password = decoded.partition(":")
-        except (binascii.Error, UnicodeDecodeError):
+        except (binascii.Error, UnicodeDecodeError) as exc:
             if self.auto_error:
-                raise HTTPException(status_code=400, detail="Invalid authentication credentials")
+                raise HTTPException(status_code=400, detail="Invalid authentication credentials") from exc
             return None
         return HTTPBasicCredentials(username=username, password=password)
 
@@ -197,11 +197,11 @@ class _APIKeyBase:
 class APIKeyHeader(_APIKeyBase):
     """API key extracted from an HTTP request header.
 
-        api_key_header = APIKeyHeader(name="X-API-Key")
+    api_key_header = APIKeyHeader(name="X-API-Key")
 
-        @app.get("/secure")
-        async def secure(key: str = Depends(api_key_header)):
-            ...
+    @app.get("/secure")
+    async def secure(key: str = Depends(api_key_header)):
+        ...
     """
 
     async def __call__(self, request: Request) -> str | None:
@@ -215,29 +215,30 @@ class APIKeyHeader(_APIKeyBase):
 class APIKeyQuery(_APIKeyBase):
     """API key extracted from a query parameter.
 
-        api_key_query = APIKeyQuery(name="api_key")
+    api_key_query = APIKeyQuery(name="api_key")
 
-        @app.get("/secure")
-        async def secure(key: str = Depends(api_key_query)):
-            ...
+    @app.get("/secure")
+    async def secure(key: str = Depends(api_key_query)):
+        ...
     """
 
     async def __call__(self, request: Request) -> str | None:
-        key = request.query_params.get(self.name)
-        if key is None:
+        raw = request.query_params.get(self.name)
+        if raw is None:
             self._deny()
             return None
+        key: str = str(raw)
         return key
 
 
 class APIKeyCookie(_APIKeyBase):
     """API key extracted from a cookie.
 
-        api_key_cookie = APIKeyCookie(name="session")
+    api_key_cookie = APIKeyCookie(name="session")
 
-        @app.get("/secure")
-        async def secure(key: str = Depends(api_key_cookie)):
-            ...
+    @app.get("/secure")
+    async def secure(key: str = Depends(api_key_cookie)):
+        ...
     """
 
     async def __call__(self, request: Request) -> str | None:

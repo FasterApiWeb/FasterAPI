@@ -130,9 +130,7 @@ def __getattr__(name: str) -> Any:
             from .testclient import TestClient as _TestClient
         except ModuleNotFoundError as e:
             if getattr(e, "name", None) == "httpx":
-                raise ImportError(
-                    "TestClient requires httpx. Install with: pip install httpx"
-                ) from e
+                raise ImportError("TestClient requires httpx. Install with: pip install httpx") from e
             raise
         return _TestClient
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

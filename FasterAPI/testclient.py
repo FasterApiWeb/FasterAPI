@@ -124,9 +124,7 @@ class TestClient:
                     idx[0] += 1
                     return msg
                 # Wait for shutdown trigger
-                await asyncio.get_event_loop().run_in_executor(
-                    None, shutdown_trigger.wait
-                )
+                await asyncio.get_event_loop().run_in_executor(None, shutdown_trigger.wait)
                 return {"type": "lifespan.shutdown"}
 
             async def send(msg: dict[str, Any]) -> None:

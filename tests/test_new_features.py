@@ -1,17 +1,17 @@
 """Tests for the newly added features:
-  - Security utilities (OAuth2, HTTPBasic, APIKey*)
-  - Lifespan context manager
-  - response_model / response_model_include / response_model_exclude
-  - Annotated[T, Depends(...)] — PEP 593 style
-  - Sub-application mounting (mount())
-  - Server-Sent Events (EventSourceResponse)
-  - ORJSONResponse / UJSONResponse aliases
-  - datetime / UUID / Decimal serialization
-  - Multiple response declarations (responses={...})
-  - APIRouter dependencies
-  - Dataclass support
-  - Enum path parameters in OpenAPI
-  - openapi_tags / terms_of_service / contact / license_info
+- Security utilities (OAuth2, HTTPBasic, APIKey*)
+- Lifespan context manager
+- response_model / response_model_include / response_model_exclude
+- Annotated[T, Depends(...)] — PEP 593 style
+- Sub-application mounting (mount())
+- Server-Sent Events (EventSourceResponse)
+- ORJSONResponse / UJSONResponse aliases
+- datetime / UUID / Decimal serialization
+- Multiple response declarations (responses={...})
+- APIRouter dependencies
+- Dataclass support
+- Enum path parameters in OpenAPI
+- openapi_tags / terms_of_service / contact / license_info
 """
 
 from __future__ import annotations
@@ -25,9 +25,10 @@ from contextlib import asynccontextmanager
 from typing import Annotated
 
 import msgspec
-import pytest
-
 from FasterAPI import (
+    APIKeyCookie,
+    APIKeyHeader,
+    APIKeyQuery,
     Depends,
     EventSourceResponse,
     Faster,
@@ -35,18 +36,13 @@ from FasterAPI import (
     HTTPBasic,
     HTTPBasicCredentials,
     JSONResponse,
+    OAuth2PasswordBearer,
     ORJSONResponse,
     Request,
-    UJSONResponse,
-    APIKeyHeader,
-    APIKeyQuery,
-    APIKeyCookie,
-    OAuth2PasswordBearer,
     SecurityScopes,
-    StaticFiles,
+    UJSONResponse,
 )
 from FasterAPI.testclient import TestClient
-
 
 # ---------------------------------------------------------------------------
 #  Security — OAuth2PasswordBearer

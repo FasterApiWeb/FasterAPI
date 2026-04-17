@@ -10,7 +10,7 @@ import types
 import typing
 import uuid
 from collections.abc import Callable
-from typing import Any, Annotated, Union, get_args, get_origin
+from typing import Annotated, Any, Union, get_args, get_origin
 
 import msgspec
 
@@ -126,28 +126,31 @@ def _build_operation(
             merged: dict[str, Any] = {"description": resp_def.get("description", "Response")}
             model = resp_def.get("model")
             if model is not None:
-                schema = _type_to_schema(model, schemas)
-                merged["content"] = {"application/json": {"schema": schema}}
+                extra_schema = _type_to_schema(model, schemas)
+                merged["content"] = {"application/json": {"schema": extra_schema}}
             elif "content" in resp_def:
                 merged["content"] = resp_def["content"]
             responses[key] = merged
 
     if parameters or request_body:
-        responses.setdefault("422", {
-            "description": "Validation Error",
-            "content": {
-                "application/json": {
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "detail": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "loc": {"type": "array", "items": {"type": "string"}},
-                                        "msg": {"type": "string"},
-                                        "type": {"type": "string"},
+        responses.setdefault(
+            "422",
+            {
+                "description": "Validation Error",
+                "content": {
+                    "application/json": {
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "detail": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "loc": {"type": "array", "items": {"type": "string"}},
+                                            "msg": {"type": "string"},
+                                            "type": {"type": "string"},
+                                        },
                                     },
                                 },
                             },
@@ -155,7 +158,7 @@ def _build_operation(
                     },
                 },
             },
-        })
+        )
 
     operation["responses"] = responses
     return operation
@@ -189,10 +192,12 @@ def _extract_params(
         annotation, default = _unwrap_annotated_for_openapi(raw_annotation, raw_default)
 
         from ..request import Request as RequestClass
+
         if annotation is RequestClass:
             continue
 
         from ..dependencies import Depends
+
         if isinstance(default, Depends) or isinstance(raw_default, Depends):
             continue
 
@@ -372,10 +377,10 @@ def _python_type_to_schema(
 
     # dict / Dict[K, V]
     if origin is dict:
-        schema: dict[str, Any] = {"type": "object"}
+        dict_schema: dict[str, Any] = {"type": "object"}
         if args and len(args) == 2:
-            schema["additionalProperties"] = _python_type_to_schema(args[1], schemas)
-        return schema
+            dict_schema["additionalProperties"] = _python_type_to_schema(args[1], schemas)
+        return dict_schema
 
     return {"type": "string"}
 
@@ -464,7 +469,7 @@ def _dataclass_to_schema(
     defaults = {
         f.name
         for f in dataclasses.fields(dc_type)
-        if f.default is not dataclasses.MISSING or f.default_factory is not dataclasses.MISSING  # type: ignore[misc]
+        if f.default is not dataclasses.MISSING or f.default_factory is not dataclasses.MISSING
     }
 
     for field_name, field_type in hints.items():
