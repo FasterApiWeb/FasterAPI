@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
+import decimal
 import mimetypes
+import uuid
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
 from typing import Any, cast
@@ -9,6 +12,26 @@ from typing import Any, cast
 import msgspec.json
 
 from .types import ASGIApp
+
+
+def _enc_hook(obj: Any) -> Any:
+    """Custom encoder for types not natively supported by msgspec."""
+    if isinstance(obj, datetime.datetime):
+        return obj.isoformat()
+    if isinstance(obj, datetime.date):
+        return obj.isoformat()
+    if isinstance(obj, datetime.time):
+        return obj.isoformat()
+    if isinstance(obj, uuid.UUID):
+        return str(obj)
+    if isinstance(obj, decimal.Decimal):
+        return str(obj)
+    raise TypeError(f"Unsupported type: {type(obj)!r}")
+
+
+def encode_json(content: Any) -> bytes:
+    """Encode content to JSON bytes, handling datetime/UUID/Decimal."""
+    return cast(bytes, msgspec.json.encode(content, enc_hook=_enc_hook))
 
 
 class Response:
@@ -66,12 +89,17 @@ class Response:
 
 
 class JSONResponse(Response):
-    """Response that serializes content as JSON using msgspec."""
+    """Response that serializes content as JSON using msgspec (with datetime/UUID/Decimal support)."""
 
     media_type = "application/json"
 
     def _render(self, content: Any) -> bytes:
-        return cast(bytes, msgspec.json.encode(content))
+        return encode_json(content)
+
+
+# ORJSONResponse and UJSONResponse are aliases — msgspec is faster than both.
+ORJSONResponse = JSONResponse
+UJSONResponse = JSONResponse
 
 
 class HTMLResponse(Response):
@@ -170,6 +198,80 @@ class StreamingResponse:
                         "more_body": True,
                     }
                 )
+        await send({"type": "http.response.body", "body": b"", "more_body": False})
+
+
+class EventSourceResponse:
+    """Server-Sent Events (SSE) response.
+
+    Streams events to the client in the ``text/event-stream`` format.
+
+    Usage::
+
+        async def event_generator():
+            yield {"data": "hello"}
+            yield {"event": "update", "data": "world", "id": "1"}
+
+        @app.get("/stream")
+        async def stream():
+            return EventSourceResponse(event_generator())
+    """
+
+    def __init__(
+        self,
+        content: AsyncIterator[dict[str, str]] | Iterator[dict[str, str]],
+        status_code: int = 200,
+        headers: dict[str, str] | None = None,
+        ping_interval: float | None = None,
+    ) -> None:
+        self.content = content
+        self.status_code = status_code
+        self.headers = headers or {}
+        self.ping_interval = ping_interval
+
+    @staticmethod
+    def _format_event(event: dict[str, str] | str) -> bytes:
+        if isinstance(event, str):
+            return f"data: {event}\n\n".encode()
+        lines: list[str] = []
+        if "id" in event:
+            lines.append(f"id: {event['id']}")
+        if "event" in event:
+            lines.append(f"event: {event['event']}")
+        if "data" in event:
+            for line in event["data"].splitlines():
+                lines.append(f"data: {line}")
+        if "retry" in event:
+            lines.append(f"retry: {event['retry']}")
+        return ("\n".join(lines) + "\n\n").encode()
+
+    def _build_headers(self) -> list[tuple[bytes, bytes]]:
+        raw: list[tuple[bytes, bytes]] = [
+            (b"content-type", b"text/event-stream"),
+            (b"cache-control", b"no-cache"),
+            (b"connection", b"keep-alive"),
+            (b"x-accel-buffering", b"no"),
+        ]
+        for key, value in self.headers.items():
+            raw.append((key.lower().encode("latin-1"), value.encode("latin-1")))
+        return raw
+
+    async def to_asgi(self, send: ASGIApp) -> None:
+        await send(
+            {
+                "type": "http.response.start",
+                "status": self.status_code,
+                "headers": self._build_headers(),
+            }
+        )
+        if hasattr(self.content, "__aiter__"):
+            async for event in self.content:
+                chunk = self._format_event(event)
+                await send({"type": "http.response.body", "body": chunk, "more_body": True})
+        else:
+            for event in self.content:
+                chunk = self._format_event(event)
+                await send({"type": "http.response.body", "body": chunk, "more_body": True})
         await send({"type": "http.response.body", "body": b"", "more_body": False})
 
 

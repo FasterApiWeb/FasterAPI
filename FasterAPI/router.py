@@ -101,7 +101,6 @@ class RadixRouter:
     ) -> RadixNode | None:
         """Iterative-first tree walk with recursive fallback for param backtracking."""
         n = len(segments)
-        # Fast iterative path for the common case (no backtracking needed)
         while idx < n:
             seg = segments[idx]
             child = node.children.get(seg)
@@ -109,7 +108,6 @@ class RadixRouter:
                 node = child
                 idx += 1
                 continue
-            # Try param child
             param_child = node.children.get("*")
             if param_child is not None:
                 assert param_child.param_name is not None
@@ -138,14 +136,20 @@ def _split(path: str) -> list[str]:
 
 
 class FasterRouter:
-    """API router for grouping routes with a common prefix and tags."""
+    """API router for grouping routes with a common prefix, tags, and dependencies."""
 
-    __slots__ = ("prefix", "tags", "routes")
+    __slots__ = ("prefix", "tags", "routes", "dependencies")
 
-    def __init__(self, prefix: str = "", tags: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        prefix: str = "",
+        tags: list[str] | None = None,
+        dependencies: list[Any] | None = None,
+    ) -> None:
         self.prefix = prefix.rstrip("/")
         self.tags: list[str] = tags or []
         self.routes: list[dict[str, Any]] = []
+        self.dependencies: list[Any] = dependencies or []
 
     def _add_route(
         self,
@@ -158,6 +162,10 @@ class FasterRouter:
         response_model: Any,
         status_code: int,
         deprecated: bool,
+        responses: dict[int | str, dict[str, Any]] | None,
+        dependencies: list[Any] | None,
+        response_model_include: set[str] | None = None,
+        response_model_exclude: set[str] | None = None,
     ) -> None:
         full_path = self.prefix + path
         self.routes.append(
@@ -168,8 +176,12 @@ class FasterRouter:
                 "tags": self.tags + tags,
                 "summary": summary,
                 "response_model": response_model,
+                "response_model_include": response_model_include,
+                "response_model_exclude": response_model_exclude,
                 "status_code": status_code,
                 "deprecated": deprecated,
+                "responses": responses,
+                "dependencies": dependencies,
             }
         )
 
@@ -217,6 +229,10 @@ def _route_kw(kw: dict[str, Any]) -> dict[str, Any]:
         "tags": kw.get("tags") or [],
         "summary": kw.get("summary", ""),
         "response_model": kw.get("response_model"),
+        "response_model_include": kw.get("response_model_include"),
+        "response_model_exclude": kw.get("response_model_exclude"),
         "status_code": kw.get("status_code", 200),
         "deprecated": kw.get("deprecated", False),
+        "responses": kw.get("responses"),
+        "dependencies": kw.get("dependencies"),
     }
