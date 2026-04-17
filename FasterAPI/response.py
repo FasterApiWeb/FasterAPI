@@ -4,7 +4,7 @@ import asyncio
 import mimetypes
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import msgspec.json
 
@@ -71,7 +71,7 @@ class JSONResponse(Response):
     media_type = "application/json"
 
     def _render(self, content: Any) -> bytes:
-        return cast(bytes, msgspec.json.encode(content))
+        return msgspec.json.encode(content)
 
 
 class HTMLResponse(Response):
