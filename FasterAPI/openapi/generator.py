@@ -469,7 +469,7 @@ def _dataclass_to_schema(
     defaults = {
         f.name
         for f in dataclasses.fields(dc_type)
-        if f.default is not dataclasses.MISSING or f.default_factory is not dataclasses.MISSING
+        if f.default is not dataclasses.MISSING or callable(f.default_factory)
     }
 
     for field_name, field_type in hints.items():
