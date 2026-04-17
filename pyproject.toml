@@ -49,6 +49,7 @@ dev = [
     "mypy>=1.10.0",
     "ruff>=0.8.0",
     "tox>=4.0.0",
+    "jinja2>=3.0.0",
 ]
 benchmark = [
     "httpx>=0.27.0",
