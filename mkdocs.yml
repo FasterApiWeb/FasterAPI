@@ -29,28 +29,89 @@ theme:
         icon: material/brightness-4
         name: Switch to light mode
   features:
+    - navigation.tabs
+    - navigation.tabs.sticky
     - navigation.expand
     - navigation.sections
+    - navigation.top
     - content.code.copy
+    - toc.follow
 
 nav:
   - Home: index.md
-  - Getting started: getting-started.md
-  - Python 3.13 & compatibility: python-313.md
-  - Tutorial (CRUD app): tutorial-crud.md
-  - Migrating from FastAPI: migration-from-fastapi.md
-  - Benchmarks: benchmarks.md
-  - API reference: api-reference.md
-  - Acknowledgments: acknowledgments.md
+  - Getting Started: getting-started.md
+  - Tutorial:
+      - Overview: tutorial/index.md
+      - Path Parameters: tutorial/path-parameters.md
+      - Query Parameters: tutorial/query-parameters.md
+      - Request Body: tutorial/request-body.md
+      - Response Model: tutorial/response-model.md
+      - Form Data & File Uploads: tutorial/form-and-files.md
+      - Error Handling: tutorial/error-handling.md
+      - Dependencies: tutorial/dependencies.md
+      - Background Tasks: tutorial/background-tasks.md
+      - Middleware: tutorial/middleware.md
+      - WebSockets: tutorial/websockets.md
+      - Metadata & Docs: tutorial/metadata.md
+  - Advanced User Guide:
+      - Overview: advanced/index.md
+      - Custom Response Classes: advanced/custom-response.md
+      - Response Cookies & Headers: advanced/response-cookies-headers.md
+      - Using the Request: advanced/using-request.md
+      - Settings & Env Vars: advanced/settings.md
+      - OpenAPI Customisation: advanced/openapi-customization.md
+      - Templates (Jinja2): advanced/templates.md
+      - Lifespan Events: advanced/lifespan.md
+      - Behind a Proxy: advanced/behind-proxy.md
+      - Sub-applications: advanced/sub-applications.md
+      - Server-Sent Events: advanced/server-sent-events.md
+      - Testing with Overrides: advanced/testing-overrides.md
+      - Async Tests: advanced/async-tests.md
+      - Bigger Applications: advanced/bigger-apps.md
+  - Security:
+      - Introduction: security/index.md
+      - OAuth2 + JWT: security/oauth2-jwt.md
+      - OAuth2 Scopes: security/oauth2-scopes.md
+      - HTTP Basic Auth: security/http-basic-auth.md
+  - Databases:
+      - Overview: database/index.md
+      - SQL with SQLAlchemy: database/sqlalchemy.md
+      - NoSQL — MongoDB: database/nosql-mongodb.md
+      - Async Database Usage: database/async-db.md
+  - Deployment:
+      - Overview: deployment/index.md
+      - Docker: deployment/docker.md
+      - Nginx & Traefik: deployment/nginx-traefik.md
+      - Cloud Services: deployment/cloud.md
+      - Kubernetes: deployment/kubernetes.md
+  - Concepts:
+      - Async / Await: concepts/async-await.md
+      - Concurrency & Parallelism: concepts/concurrency.md
+      - Python Type Hints: concepts/types-intro.md
+  - How-To Recipes: how-to/index.md
+  - Reference:
+      - API Reference: api-reference.md
+      - Benchmarks: benchmarks.md
+      - Migrating from FastAPI: migration-from-fastapi.md
+      - Python 3.13 & Compatibility: python-313.md
+      - Changelog: changelog.md
+      - Acknowledgments: acknowledgments.md
+  - FAQ & Troubleshooting: faq.md
 
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.superfences
   - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
   - admonition
+  - pymdownx.details
   - toc:
       permalink: true
+  - attr_list
+  - md_in_html
+  - tables
 
 extra:
   social:
