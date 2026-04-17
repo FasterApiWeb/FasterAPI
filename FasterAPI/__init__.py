@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from ._version import get_version
 
 __version__ = get_version()
+__author__ = "Eshwar Chandra Vidhyasagar Thedla"
 
 from .app import Faster
 from .background import BackgroundTask, BackgroundTasks
