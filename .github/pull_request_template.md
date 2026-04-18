@@ -15,7 +15,7 @@
 - [ ] Benchmarks not regressed (check the automated benchmark comment on this PR)
 - [ ] New features include tests
 - [ ] Docstrings added/updated for public APIs
-- [ ] `README.md` or wiki updated if user-facing behavior changed
+- [ ] `README.md` or `docs/` updated if user-facing behavior changed
 
 ## Type of Change
 
