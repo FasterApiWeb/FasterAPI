@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import threading
 from collections.abc import Generator
 from contextlib import contextmanager
 from typing import Any
@@ -93,10 +94,49 @@ class TestClient:
         )
 
     def __enter__(self) -> TestClient:
+        self._lifespan_startup_done = threading.Event()
+        self._lifespan_shutdown_trigger = threading.Event()
+        self._lifespan_thread = threading.Thread(target=self._run_lifespan_thread, daemon=True)
+        self._lifespan_thread.start()
+        self._lifespan_startup_done.wait(timeout=5.0)
         return self
 
     def __exit__(self, *args: Any) -> None:
+        if hasattr(self, "_lifespan_shutdown_trigger"):
+            self._lifespan_shutdown_trigger.set()
+            self._lifespan_thread.join(timeout=5.0)
         self._run(self._client.aclose())
+
+    def _run_lifespan_thread(self) -> None:
+        """Run the app's lifespan protocol in a dedicated thread."""
+        startup_done = self._lifespan_startup_done
+        shutdown_trigger = self._lifespan_shutdown_trigger
+
+        async def _run() -> None:
+            messages: list[dict[str, Any]] = [
+                {"type": "lifespan.startup"},
+            ]
+            idx = [0]
+
+            async def receive() -> dict[str, Any]:
+                if idx[0] < len(messages):
+                    msg = messages[idx[0]]
+                    idx[0] += 1
+                    return msg
+                # Wait for shutdown trigger
+                await asyncio.get_event_loop().run_in_executor(None, shutdown_trigger.wait)
+                return {"type": "lifespan.shutdown"}
+
+            async def send(msg: dict[str, Any]) -> None:
+                if msg.get("type") == "lifespan.startup.complete":
+                    startup_done.set()
+
+            try:
+                await self.app({"type": "lifespan"}, receive, send)
+            except Exception:
+                startup_done.set()
+
+        asyncio.run(_run())
 
     def _run(self, coro: Any) -> Any:
         try:

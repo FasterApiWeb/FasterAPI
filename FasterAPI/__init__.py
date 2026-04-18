@@ -29,15 +29,30 @@ from .middleware import (
 from .params import Body, Cookie, File, Form, Header, Path, Query
 from .request import Request
 from .response import (
+    EventSourceResponse,
     FileResponse,
     HTMLResponse,
     JSONResponse,
+    ORJSONResponse,
     PlainTextResponse,
     RedirectResponse,
     Response,
     StreamingResponse,
+    UJSONResponse,
 )
 from .router import FasterRouter, RadixRouter
+from .security import (
+    APIKeyCookie,
+    APIKeyHeader,
+    APIKeyQuery,
+    HTTPBasic,
+    HTTPBasicCredentials,
+    OAuth2PasswordBearer,
+    OAuth2PasswordRequestForm,
+    SecurityScopes,
+)
+from .staticfiles import StaticFiles
+from .templating import Jinja2Templates
 from .websocket import WebSocket, WebSocketDisconnect, WebSocketState
 
 if TYPE_CHECKING:
@@ -53,11 +68,14 @@ __all__ = [
     # Responses
     "Response",
     "JSONResponse",
+    "ORJSONResponse",
+    "UJSONResponse",
     "HTMLResponse",
     "PlainTextResponse",
     "RedirectResponse",
     "StreamingResponse",
     "FileResponse",
+    "EventSourceResponse",
     # Params
     "Body",
     "Cookie",
@@ -90,6 +108,18 @@ __all__ = [
     # Concurrency
     "SubInterpreterPool",
     "run_in_subinterpreter",
+    # Security
+    "SecurityScopes",
+    "OAuth2PasswordBearer",
+    "OAuth2PasswordRequestForm",
+    "HTTPBasic",
+    "HTTPBasicCredentials",
+    "APIKeyHeader",
+    "APIKeyQuery",
+    "APIKeyCookie",
+    # Static files & Templates
+    "StaticFiles",
+    "Jinja2Templates",
     # Testing
     "TestClient",
 ]
@@ -101,9 +131,7 @@ def __getattr__(name: str) -> Any:
             from .testclient import TestClient as _TestClient
         except ModuleNotFoundError as e:
             if getattr(e, "name", None) == "httpx":
-                raise ImportError(
-                    "TestClient requires httpx. Install with: pip install httpx",
-                ) from e
+                raise ImportError("TestClient requires httpx. Install with: pip install httpx") from e
             raise
         return _TestClient
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
