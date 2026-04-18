@@ -7,7 +7,7 @@ import mimetypes
 import uuid
 from collections.abc import AsyncIterator, Iterator
 from pathlib import Path
-from typing import Any, cast
+from typing import Any
 
 import msgspec.json
 
@@ -31,7 +31,7 @@ def _enc_hook(obj: Any) -> Any:
 
 def encode_json(content: Any) -> bytes:
     """Encode content to JSON bytes, handling datetime/UUID/Decimal."""
-    return cast(bytes, msgspec.json.encode(content, enc_hook=_enc_hook))
+    return msgspec.json.encode(content, enc_hook=_enc_hook)
 
 
 class Response:
