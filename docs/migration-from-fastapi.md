@@ -74,6 +74,21 @@ class Product(msgspec.Struct):
     price: Price
 ```
 
+### Field aliases
+
+```python
+# Before (Pydantic)
+class Item(BaseModel):
+    item_name: str = Field(alias="itemName")
+
+# After (msgspec) — use the rename class option
+class Item(msgspec.Struct, rename="camel"):
+    item_name: str
+    # Automatically serializes/deserializes as "itemName"
+```
+
+msgspec supports these rename strategies: `"camel"`, `"pascal"`, `"kebab"`, `"lower"`, `"upper"`.
+
 ## 2. Routing and decorators
 
 `@app.get`, `@app.post`, `@app.put`, `@app.delete`, `@app.patch`, `@app.websocket`,
@@ -216,6 +231,20 @@ async def get_user(id: int) -> UserPublic:
 
 Any code that imported directly from `starlette.*` needs updating to equivalent
 FasterAPI imports or plain Python/httpx alternatives.
+
+## Migration checklist
+
+- [ ] Replace `fastapi` imports with `FasterAPI` imports
+- [ ] Replace `FastAPI()` with `Faster()`
+- [ ] Replace `APIRouter` with `FasterRouter`
+- [ ] Convert `BaseModel` subclasses to `msgspec.Struct`
+- [ ] Convert Pydantic validators to `__post_init__`
+- [ ] Replace `model_dump()` with `msgspec.structs.asdict()`
+- [ ] Replace `model_dump_json()` with `msgspec.json.encode()`
+- [ ] Update custom middleware to ASGI-level dispatch
+- [ ] Convert yield-based dependencies to return-based
+- [ ] Test all endpoints
+- [ ] Run benchmarks to verify speedup
 
 ## Suggested migration order
 
