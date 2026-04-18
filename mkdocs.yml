@@ -88,10 +88,13 @@ nav:
       - Async / Await: concepts/async-await.md
       - Concurrency & Parallelism: concepts/concurrency.md
       - Python Type Hints: concepts/types-intro.md
+      - Sub-Interpreters Guide: concepts/sub-interpreters.md
   - How-To Recipes: how-to/index.md
   - Reference:
       - API Reference: api-reference.md
+      - Architecture: architecture.md
       - Benchmarks: benchmarks.md
+      - Benchmark Methodology: benchmark-methodology.md
       - Migrating from FastAPI: migration-from-fastapi.md
       - Python 3.13 & Compatibility: python-313.md
       - Changelog: changelog.md
