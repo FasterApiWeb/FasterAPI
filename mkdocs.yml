@@ -11,8 +11,11 @@ use_directory_urls: true
 
 theme:
   name: material
+  custom_dir: docs/overrides
   icon:
     repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
   palette:
     - media: "(prefers-color-scheme: light)"
       scheme: default
@@ -34,8 +37,16 @@ theme:
     - navigation.expand
     - navigation.sections
     - navigation.top
+    - navigation.footer
+    - navigation.indexes
     - content.code.copy
+    - content.code.annotate
+    - content.action.edit
+    - content.action.view
     - toc.follow
+    - search.highlight
+    - search.suggest
+    - search.share
 
 nav:
   - Home: index.md
@@ -60,6 +71,7 @@ nav:
       - Using the Request: advanced/using-request.md
       - Settings & Env Vars: advanced/settings.md
       - OpenAPI Customisation: advanced/openapi-customization.md
+      - Additional Responses: advanced/additional-responses.md
       - Templates (Jinja2): advanced/templates.md
       - Lifespan Events: advanced/lifespan.md
       - Behind a Proxy: advanced/behind-proxy.md
@@ -81,6 +93,9 @@ nav:
   - Deployment:
       - Overview: deployment/index.md
       - Docker: deployment/docker.md
+      - systemd Service: deployment/systemd.md
+      - Gunicorn + Uvicorn: deployment/gunicorn.md
+      - HTTPS — Let's Encrypt: deployment/https.md
       - Nginx & Traefik: deployment/nginx-traefik.md
       - Cloud Services: deployment/cloud.md
       - Kubernetes: deployment/kubernetes.md
@@ -88,6 +103,8 @@ nav:
       - Async / Await: concepts/async-await.md
       - Concurrency & Parallelism: concepts/concurrency.md
       - Python Type Hints: concepts/types-intro.md
+      - msgspec vs Pydantic: concepts/msgspec-vs-pydantic.md
+      - Radix Tree Routing: concepts/radix-tree-routing.md
       - Sub-Interpreters Guide: concepts/sub-interpreters.md
   - How-To Recipes: how-to/index.md
   - Reference:
@@ -104,10 +121,16 @@ nav:
 markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
   - pymdownx.superfences
   - pymdownx.inlinehilite
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - admonition
   - pymdownx.details
   - toc:
@@ -115,8 +138,12 @@ markdown_extensions:
   - attr_list
   - md_in_html
   - tables
+  - footnotes
 
 extra:
+  version:
+    provider: mike
+    default: stable
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/FasterApiWeb/FasterAPI
@@ -126,7 +153,11 @@ extra:
       name: PyPI faster-api-web
 
 plugins:
-  - search
+  - search:
+      separator: '[\s\-,:!=\[\]()"`/]+|\.(?!\d)|&[lg]t;|(?!\b)(?=[A-Z][a-z])'
+  - mike:
+      alias_type: symlink
+      canonical_version: latest
   - mkdocstrings:
       handlers:
         python:
