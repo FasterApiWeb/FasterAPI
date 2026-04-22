@@ -409,6 +409,7 @@ class Faster:
         dependencies: list[Depends] | None,
         response_model_include: set[str] | None = None,
         response_model_exclude: set[str] | None = None,
+        openapi_extra: dict[str, Any] | None = None,
     ) -> None:
         metadata: dict[str, Any] = {
             "tags": tags,
@@ -420,6 +421,7 @@ class Faster:
             "deprecated": deprecated,
             "responses": responses,
             "dependencies": dependencies,
+            "openapi_extra": openapi_extra,
         }
         self.routes.append({"method": method, "path": path, "handler": handler, **metadata})
         self._router.add_route(method, path, handler, metadata)
@@ -440,6 +442,7 @@ class Faster:
                 deprecated=kw.get("deprecated", False),
                 responses=kw.get("responses"),
                 dependencies=kw.get("dependencies"),
+                openapi_extra=kw.get("openapi_extra"),
             )
             return handler
 

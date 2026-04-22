@@ -8,6 +8,9 @@ to cloud platforms to bare-metal servers.
 | Topic | What you learn |
 |---|---|
 | [Docker](docker.md) | Dockerfile, multi-stage builds, docker-compose |
+| [systemd Service](systemd.md) | Service unit file, auto-start, journald logging |
+| [Gunicorn + Uvicorn](gunicorn.md) | Multi-process worker pooling, production config |
+| [HTTPS — Let's Encrypt](https.md) | Free TLS certificates with Certbot and Nginx |
 | [Nginx & Traefik](nginx-traefik.md) | Reverse proxy, TLS termination, load balancing |
 | [Cloud Services](cloud.md) | AWS, GCP, Azure deployment options |
 | [Kubernetes](kubernetes.md) | Manifests, health checks, rolling updates |
@@ -88,4 +91,7 @@ async def health():
 ## Next steps
 
 - [Docker](docker.md) — containerise your app.
-- [Nginx & Traefik](nginx-traefik.md) — proxy and TLS.
+- [systemd Service](systemd.md) — run as a managed Linux service.
+- [Gunicorn + Uvicorn](gunicorn.md) — multi-worker process pooling.
+- [HTTPS — Let's Encrypt](https.md) — free TLS with Certbot and Nginx.
+- [Nginx & Traefik](nginx-traefik.md) — reverse proxy and load balancing.

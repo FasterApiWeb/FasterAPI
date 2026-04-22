@@ -12,6 +12,7 @@ OpenAPI customisation, real-time transports, and testing strategies.
 | [Using the Request Directly](using-request.md) | Access raw request data, headers, client IP |
 | [Settings & Environment Variables](settings.md) | Twelve-factor config with `os.environ` / `python-dotenv` |
 | [OpenAPI Customisation](openapi-customization.md) | Conditional docs, extending the schema |
+| [Additional Responses](additional-responses.md) | Document extra status codes and response schemas |
 | [Templates (Jinja2)](templates.md) | Server-side HTML rendering |
 | [Lifespan Events](lifespan.md) | Startup/shutdown hooks for connections and caches |
 | [Behind a Proxy](behind-proxy.md) | Root path, forwarded headers, Nginx/Traefik |

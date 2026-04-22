@@ -166,6 +166,7 @@ class FasterRouter:
         dependencies: list[Any] | None,
         response_model_include: set[str] | None = None,
         response_model_exclude: set[str] | None = None,
+        openapi_extra: dict[str, Any] | None = None,
     ) -> None:
         full_path = self.prefix + path
         self.routes.append(
@@ -182,6 +183,7 @@ class FasterRouter:
                 "deprecated": deprecated,
                 "responses": responses,
                 "dependencies": dependencies,
+                "openapi_extra": openapi_extra,
             }
         )
 
@@ -235,4 +237,5 @@ def _route_kw(kw: dict[str, Any]) -> dict[str, Any]:
         "deprecated": kw.get("deprecated", False),
         "responses": kw.get("responses"),
         "dependencies": kw.get("dependencies"),
+        "openapi_extra": kw.get("openapi_extra"),
     }
