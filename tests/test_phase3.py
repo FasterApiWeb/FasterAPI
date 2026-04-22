@@ -5,23 +5,18 @@ Covers:
 - Enum path parameter coercion (implicit and explicit Path marker)
 - CLI argument parsing (fasterapi run / dev / new / migrate-from-fastapi)
 """
+
 from __future__ import annotations
 
 import enum
-import sys
 import textwrap
-from pathlib import Path
-from typing import Annotated
 from unittest import mock
-
-import pytest
 
 from FasterAPI import Faster, FasterRouter
 from FasterAPI.cli import _build_parser, _migrate_file, main
 from FasterAPI.openapi.generator import generate_openapi
 from FasterAPI.params import Path as PathParam
 from FasterAPI.testclient import TestClient
-
 
 # ===========================================================================
 #  openapi_extra
@@ -293,14 +288,16 @@ class TestCLINew:
 class TestCLIMigrate:
     def test_migrate_rewrites_fastapi_imports(self, tmp_path):
         src = tmp_path / "app.py"
-        src.write_text(textwrap.dedent("""\
+        src.write_text(
+            textwrap.dedent("""\
             from fastapi import FastAPI
             from fastapi import APIRouter
             from fastapi.responses import JSONResponse
             from fastapi.middleware.cors import CORSMiddleware
 
             app = FastAPI()
-        """))
+        """)
+        )
         rc = main(["migrate-from-fastapi", str(src)])
         assert rc == 0
         result = src.read_text()

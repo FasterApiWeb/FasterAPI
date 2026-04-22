@@ -19,7 +19,6 @@ import sys
 import textwrap
 from pathlib import Path
 
-
 # ---------------------------------------------------------------------------
 #  Entry point
 # ---------------------------------------------------------------------------
@@ -31,7 +30,8 @@ def main(argv: list[str] | None = None) -> int:
     if not hasattr(args, "func"):
         parser.print_help()
         return 1
-    return args.func(args)
+    result: int = args.func(args)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -63,10 +63,14 @@ def _build_uvicorn_cmd(args: argparse.Namespace, *, reload: bool) -> list[str]:
         app_ref = f"{app_ref}:app"
 
     cmd: list[str] = [
-        sys.executable, "-m", "uvicorn",
+        sys.executable,
+        "-m",
+        "uvicorn",
         app_ref,
-        "--host", args.host,
-        "--port", str(args.port),
+        "--host",
+        args.host,
+        "--port",
+        str(args.port),
     ]
     if reload:
         cmd.append("--reload")
@@ -102,7 +106,10 @@ def _cmd_new(args: argparse.Namespace) -> int:
     _write(dest / "app" / "routers" / "items.py", _ITEMS_ROUTER_PY)
     _write(dest / "app" / "models.py", _MODELS_PY)
     _write(dest / "pyproject.toml", _PYPROJECT_TOML.format(name=name))
-    _write(dest / "README.md", f"# {name}\n\nA FasterAPI application.\n\n## Run\n\n```bash\npip install -e .\nfasterapi dev app.main\n```\n")
+    _write(
+        dest / "README.md",
+        f"# {name}\n\nA FasterAPI application.\n\n## Run\n\n```bash\npip install -e .\nfasterapi dev app.main\n```\n",
+    )
     _write(dest / ".gitignore", _GITIGNORE)
     _write(dest / ".env", "# Environment variables\nDEBUG=true\n")
     _write(dest / "Dockerfile", _DOCKERFILE.format(name=name))
@@ -149,23 +156,23 @@ def _cmd_migrate(args: argparse.Namespace) -> int:
 # Substitution rules applied in order
 _MIGRATION_RULES: list[tuple[str, str]] = [
     # Import rewriting — most specific first
-    (r"from fastapi\.testclient import TestClient",       "from FasterAPI.testclient import TestClient"),
-    (r"from fastapi\.security import",                    "from FasterAPI.security import"),
+    (r"from fastapi\.testclient import TestClient", "from FasterAPI.testclient import TestClient"),
+    (r"from fastapi\.security import", "from FasterAPI.security import"),
     (r"from fastapi\.middleware\.cors import CORSMiddleware", "from FasterAPI.middleware import CORSMiddleware"),
     (r"from fastapi\.middleware\.gzip import GZipMiddleware", "from FasterAPI.middleware import GZipMiddleware"),
-    (r"from fastapi\.middleware import",                  "from FasterAPI.middleware import"),
-    (r"from fastapi\.staticfiles import StaticFiles",     "from FasterAPI.staticfiles import StaticFiles"),
-    (r"from fastapi\.templating import Jinja2Templates",  "from FasterAPI.templating import Jinja2Templates"),
-    (r"from fastapi\.responses import",                   "from FasterAPI.response import"),
-    (r"from fastapi\.background import",                  "from FasterAPI.background import"),
-    (r"from fastapi\.websockets import",                  "from FasterAPI.websocket import"),
-    (r"from fastapi import APIRouter",                    "from FasterAPI import FasterRouter as APIRouter"),
-    (r"from fastapi import FastAPI",                      "from FasterAPI import Faster as FastAPI"),
-    (r"from fastapi import",                              "from FasterAPI import"),
-    (r"import fastapi\b",                                 "import FasterAPI"),
+    (r"from fastapi\.middleware import", "from FasterAPI.middleware import"),
+    (r"from fastapi\.staticfiles import StaticFiles", "from FasterAPI.staticfiles import StaticFiles"),
+    (r"from fastapi\.templating import Jinja2Templates", "from FasterAPI.templating import Jinja2Templates"),
+    (r"from fastapi\.responses import", "from FasterAPI.response import"),
+    (r"from fastapi\.background import", "from FasterAPI.background import"),
+    (r"from fastapi\.websockets import", "from FasterAPI.websocket import"),
+    (r"from fastapi import APIRouter", "from FasterAPI import FasterRouter as APIRouter"),
+    (r"from fastapi import FastAPI", "from FasterAPI import Faster as FastAPI"),
+    (r"from fastapi import", "from FasterAPI import"),
+    (r"import fastapi\b", "import FasterAPI"),
     # Class name rewriting
-    (r"\bFastAPI\(\b",                                   "Faster("),
-    (r"\bAPIRouter\(\b",                                 "FasterRouter("),
+    (r"\bFastAPI\(\b", "Faster("),
+    (r"\bAPIRouter\(\b", "FasterRouter("),
 ]
 
 
@@ -196,8 +203,13 @@ def _build_parser() -> argparse.ArgumentParser:
     # -- run --
     p_run = sub.add_parser("run", help="Run app with uvicorn (production)")
     _add_server_args(p_run)
-    p_run.add_argument("--workers", type=int, default=_default_workers(), metavar="N",
-                       help="Number of uvicorn worker processes (default: %(default)s)")
+    p_run.add_argument(
+        "--workers",
+        type=int,
+        default=_default_workers(),
+        metavar="N",
+        help="Number of uvicorn worker processes (default: %(default)s)",
+    )
     p_run.set_defaults(func=_cmd_run)
 
     # -- dev --
@@ -211,24 +223,30 @@ def _build_parser() -> argparse.ArgumentParser:
     p_new.set_defaults(func=_cmd_new)
 
     # -- migrate-from-fastapi --
-    p_mig = sub.add_parser("migrate-from-fastapi",
-                            help="Rewrite fastapi imports to FasterAPI")
+    p_mig = sub.add_parser("migrate-from-fastapi", help="Rewrite fastapi imports to FasterAPI")
     p_mig.add_argument("path", help="File or directory to migrate")
-    p_mig.add_argument("--dry-run", action="store_true",
-                        help="Show what would change without writing files")
+    p_mig.add_argument("--dry-run", action="store_true", help="Show what would change without writing files")
     p_mig.set_defaults(func=_cmd_migrate)
 
     return parser
 
 
 def _add_server_args(p: argparse.ArgumentParser) -> None:
-    p.add_argument("app", nargs="?", default="main:app",
-                   help="App import string, e.g. main:app or mypackage.main (default: main:app)")
+    p.add_argument(
+        "app",
+        nargs="?",
+        default="main:app",
+        help="App import string, e.g. main:app or mypackage.main (default: main:app)",
+    )
     p.add_argument("--host", default="127.0.0.1", help="Bind host (default: 127.0.0.1)")
     p.add_argument("--port", type=int, default=8000, help="Bind port (default: 8000)")
-    p.add_argument("--log-level", default="info",
-                   choices=["critical", "error", "warning", "info", "debug", "trace"],
-                   metavar="LEVEL", help="Log level (default: info)")
+    p.add_argument(
+        "--log-level",
+        default="info",
+        choices=["critical", "error", "warning", "info", "debug", "trace"],
+        metavar="LEVEL",
+        help="Log level (default: info)",
+    )
 
 
 def _default_workers() -> int:
@@ -242,7 +260,7 @@ def _default_workers() -> int:
 #  Project scaffold templates
 # ---------------------------------------------------------------------------
 
-_MAIN_PY = '''\
+_MAIN_PY = """\
 from contextlib import asynccontextmanager
 
 from FasterAPI import Faster
@@ -270,9 +288,9 @@ app.include_router(items.router, prefix="/items", tags=["items"])
 @app.get("/health", tags=["health"])
 async def health():
     return {{"status": "ok"}}
-'''
+"""
 
-_ITEMS_ROUTER_PY = '''\
+_ITEMS_ROUTER_PY = """\
 import msgspec
 from FasterAPI import FasterRouter, HTTPException
 
@@ -316,7 +334,7 @@ async def delete_item(item_id: int):
     if item_id not in _DB:
         raise HTTPException(status_code=404, detail="Item not found")
     del _DB[item_id]
-'''
+"""
 
 _MODELS_PY = '''\
 """Shared data models for the application."""
@@ -327,7 +345,7 @@ class ErrorDetail(msgspec.Struct):
     detail: str
 '''
 
-_PYPROJECT_TOML = '''\
+_PYPROJECT_TOML = """\
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
@@ -353,9 +371,9 @@ testpaths = ["tests"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
-'''
+"""
 
-_GITIGNORE = '''\
+_GITIGNORE = """\
 __pycache__/
 *.pyc
 *.pyo
@@ -366,9 +384,9 @@ dist/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
-'''
+"""
 
-_DOCKERFILE = '''\
+_DOCKERFILE = """\
 FROM python:3.13-slim
 
 WORKDIR /app
@@ -380,4 +398,4 @@ RUN useradd -r -u 1001 appuser
 USER appuser
 EXPOSE 8000
 CMD ["fasterapi", "run", "app.main", "--host", "0.0.0.0"]
-'''
+"""

@@ -409,8 +409,14 @@ def _coerce_path_value(value: str, annotation: Any, name: str) -> Any:
     except ValueError:
         valid = [m.value for m in annotation]
         raise RequestValidationError(
-            [{"loc": ["path", name], "msg": f"value is not a valid enum member; permitted: {valid}", "type": "type_error.enum"}],
-        )
+            [
+                {
+                    "loc": ["path", name],
+                    "msg": f"value is not a valid enum member; permitted: {valid}",
+                    "type": "type_error.enum",
+                }
+            ],
+        ) from None
 
 
 def _resolve_query(name: str, request: Request, marker: Query) -> Any:
