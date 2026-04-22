@@ -59,10 +59,14 @@ benchmark = [
 docs = [
     "mkdocs-material>=9.5.0",
     "mkdocstrings[python]>=0.25.0",
+    "mike>=2.0.0",
 ]
 test = [
     "httpx>=0.27.0",
 ]
+
+[project.scripts]
+fasterapi = "FasterAPI.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/FasterApiWeb/FasterAPI"

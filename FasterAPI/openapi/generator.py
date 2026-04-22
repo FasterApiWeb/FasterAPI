@@ -161,6 +161,17 @@ def _build_operation(
         )
 
     operation["responses"] = responses
+
+    # Merge caller-supplied extra fields (e.g. x-internal, externalDocs, servers)
+    openapi_extra: dict[str, Any] | None = route.get("openapi_extra")
+    if openapi_extra:
+        for key, value in openapi_extra.items():
+            if key == "responses" and isinstance(value, dict):
+                # Deep-merge additional responses rather than clobber
+                operation["responses"].update(value)
+            else:
+                operation[key] = value
+
     return operation
 
 

@@ -9,6 +9,7 @@ list of (_ParamSpec, ...) tuples that the hot-path resolver iterates.
 from __future__ import annotations
 
 import dataclasses
+import enum
 import inspect
 import typing
 from collections.abc import Callable
@@ -247,7 +248,7 @@ async def _resolve_from_specs(
                 spec.default,
             )
         elif kind == _KIND_PATH:
-            kwargs[spec.name] = _resolve_path(spec.name, path_params, spec.marker)
+            kwargs[spec.name] = _resolve_path(spec.name, path_params, spec.marker, spec.annotation)
         elif kind == _KIND_QUERY:
             kwargs[spec.name] = _resolve_query(spec.name, request, spec.marker)
         elif kind == _KIND_HEADER:
@@ -266,7 +267,7 @@ async def _resolve_from_specs(
             kwargs[spec.name] = await _resolve_body(request, spec.marker)
         else:
             if spec.name in path_params:
-                kwargs[spec.name] = path_params[spec.name]
+                kwargs[spec.name] = _coerce_path_value(path_params[spec.name], spec.annotation, spec.name)
             elif spec.default is not inspect.Parameter.empty:
                 kwargs[spec.name] = spec.default
 
@@ -380,14 +381,36 @@ async def _resolve_dataclass(
         ) from exc
 
 
-def _resolve_path(name: str, path_params: dict[str, str], marker: Path) -> Any:
+def _resolve_path(name: str, path_params: dict[str, str], marker: Path, annotation: Any = None) -> Any:
     if name in path_params:
-        return path_params[name]
+        return _coerce_path_value(path_params[name], annotation, name)
     if marker.default is not _MISSING:
         return marker.default
     raise RequestValidationError(
         [{"loc": ["path", name], "msg": "Missing required path parameter", "type": "value_error.missing"}],
     )
+
+
+def _coerce_path_value(value: str, annotation: Any, name: str) -> Any:
+    """Coerce a raw path-param string to *annotation* when it is an Enum type."""
+    if annotation is None or not (inspect.isclass(annotation) and issubclass(annotation, enum.Enum)):
+        return value
+    # For numeric enums (IntEnum, etc.) cast the string to the value type first
+    members = list(annotation)
+    if members:
+        value_type = type(members[0].value)
+        if value_type is not str:
+            try:
+                return annotation(value_type(value))
+            except (ValueError, TypeError):
+                pass
+    try:
+        return annotation(value)
+    except ValueError:
+        valid = [m.value for m in annotation]
+        raise RequestValidationError(
+            [{"loc": ["path", name], "msg": f"value is not a valid enum member; permitted: {valid}", "type": "type_error.enum"}],
+        )
 
 
 def _resolve_query(name: str, request: Request, marker: Query) -> Any:
