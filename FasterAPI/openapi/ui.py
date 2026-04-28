@@ -14,6 +14,7 @@ def swagger_ui_html(openapi_url: str, title: str = "FasterAPI - Swagger UI") -> 
 <body>
     <div id="swagger-ui"></div>
     <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <script src="https://unpkg.com/swagger-ui-dist@5/swagger-ui-standalone-preset.js"></script>
     <script>
         SwaggerUIBundle({{
             url: "{openapi_url}",
