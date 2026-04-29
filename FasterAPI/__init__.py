@@ -20,6 +20,12 @@ from .concurrency import SubInterpreterPool, run_in_subinterpreter
 from .datastructures import FormData, UploadFile
 from .dependencies import Depends
 from .exceptions import HTTPException, RequestValidationError
+from .jwt_auth import (
+    JWTBearer,
+    create_access_token,
+    oauth2_access_token_json,
+    oauth2_password_token_response,
+)
 from .log_config import configure_structlog
 from .middleware import (
     BaseHTTPMiddleware,
@@ -30,6 +36,7 @@ from .middleware import (
 )
 from .params import Body, Cookie, File, Form, Header, Path, Query
 from .production import DatabasePoolMiddleware, RateLimitMiddleware, RequestIDMiddleware
+from .redis_cache import RedisCacheMiddleware
 from .request import Request
 from .response import (
     EventSourceResponse,
@@ -54,6 +61,7 @@ from .security import (
     OAuth2PasswordRequestForm,
     SecurityScopes,
 )
+from .sqlalchemy_ext import async_engine_from_url_optional, sqlalchemy_session_dependency
 from .staticfiles import StaticFiles
 from .templating import Jinja2Templates
 from .websocket import WebSocket, WebSocketDisconnect, WebSocketState
@@ -129,6 +137,14 @@ __all__ = [
     "APIKeyHeader",
     "APIKeyQuery",
     "APIKeyCookie",
+    # Ecosystem (v0.3)
+    "sqlalchemy_session_dependency",
+    "async_engine_from_url_optional",
+    "RedisCacheMiddleware",
+    "JWTBearer",
+    "create_access_token",
+    "oauth2_access_token_json",
+    "oauth2_password_token_response",
     # Static files & Templates
     "StaticFiles",
     "Jinja2Templates",

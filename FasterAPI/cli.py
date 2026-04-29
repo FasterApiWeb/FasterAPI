@@ -2,6 +2,7 @@
 
 Commands
 --------
+fasterapi version             Print package version (same as ``get_version()``).
 fasterapi run   <app>        Run with uvicorn (production mode).
 fasterapi dev   <app>        Run with auto-reload (development mode).
 fasterapi new   <name>       Scaffold a new FasterAPI project.
@@ -126,6 +127,13 @@ def _write(path: Path, content: str) -> None:
     path.write_text(textwrap.dedent(content).lstrip())
 
 
+def _cmd_version(_args: argparse.Namespace) -> int:
+    from ._version import get_version
+
+    print(get_version())
+    return 0
+
+
 # ---------------------------------------------------------------------------
 #  Sub-command: migrate-from-fastapi
 # ---------------------------------------------------------------------------
@@ -221,6 +229,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p_new = sub.add_parser("new", help="Scaffold a new FasterAPI project")
     p_new.add_argument("name", help="Project directory name")
     p_new.set_defaults(func=_cmd_new)
+
+    # -- version --
+    p_ver = sub.add_parser("version", help="Print installed faster-api-web version")
+    p_ver.set_defaults(func=_cmd_version)
 
     # -- migrate-from-fastapi --
     p_mig = sub.add_parser("migrate-from-fastapi", help="Rewrite fastapi imports to FasterAPI")

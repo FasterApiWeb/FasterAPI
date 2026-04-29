@@ -137,6 +137,7 @@ pip install -e ".[dev]"
 - **[python-multipart](https://github.com/Kludex/python-multipart)** — forms and uploads.
 - Optional: **[uvloop](https://github.com/MagicStack/uvloop)** via `faster-api-web[all]` for lower event-loop overhead on Linux.
 - Optional: **`faster-api-web[production]`** — [structlog](https://www.structlog.org/) for structured logs; **`faster-api-web[http2]`** — [Hypercorn](https://hypercorn.readthedocs.io/) and [Daphne](https://github.com/django/daphne) for HTTP/2-capable ASGI servers (the framework stays ASGI 3–compatible; servers negotiate HTTP/2 on TLS).
+- Optional: **`faster-api-web[ecosystem]`** — [SQLAlchemy](https://www.sqlalchemy.org/) async sessions (`sqlite+aiosqlite` for local tests), [redis](https://redis.readthedocs.io/) for response caching middleware, [PyJWT](https://pyjwt.readthedocs.io/) for bearer tokens and OAuth2-style helpers. Install with `pip install faster-api-web[ecosystem]` (these are also included in `[all]`).
 
 **Python:**
 
@@ -851,11 +852,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
 - [x] Structured logging integration (structlog)
 
 ### v0.3.0 — Ecosystem
-- [ ] SQLAlchemy async session dependency
-- [ ] Redis cache middleware
-- [ ] JWT authentication middleware
-- [ ] OAuth2 password/bearer flow
-- [ ] CLI tool (`fasterapi run`, `fasterapi new`)
+- [x] SQLAlchemy async session dependency
+- [x] Redis cache middleware
+- [x] JWT authentication middleware
+- [x] OAuth2 password/bearer flow
+- [x] CLI tool (`fasterapi run`, `fasterapi new`, `fasterapi version`)
 
 ### v0.4.0 — Performance
 - [ ] Cython-compiled hot paths (router, DI resolver)

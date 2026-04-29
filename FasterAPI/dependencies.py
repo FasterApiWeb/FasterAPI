@@ -8,6 +8,7 @@ list of (_ParamSpec, ...) tuples that the hot-path resolver iterates.
 
 from __future__ import annotations
 
+import contextlib
 import dataclasses
 import enum
 import inspect
@@ -199,15 +200,17 @@ async def _resolve_handler(
     cache: dict[Callable[..., Any], Any] = {}
     bg_tasks = BackgroundTasks()
 
-    # Router-level dependencies resolved before handler params
-    if extra_deps:
-        for dep in extra_deps:
-            await _resolve_dependency(dep, request, path_params, cache, bg_tasks)
+    try:
+        if extra_deps:
+            for dep in extra_deps:
+                await _resolve_dependency(dep, request, path_params, cache, bg_tasks)
 
-    kwargs = await _resolve_from_specs(specs, request, path_params, cache, bg_tasks)
+        kwargs = await _resolve_from_specs(specs, request, path_params, cache, bg_tasks)
 
-    result = await handler(**kwargs) if is_async else handler(**kwargs)
-    return result, bg_tasks if bg_tasks._tasks else None
+        result = await handler(**kwargs) if is_async else handler(**kwargs)
+        return result, bg_tasks if bg_tasks._tasks else None
+    finally:
+        await _close_dependency_asyncgens(request)
 
 
 async def _resolve_from_specs(
@@ -275,6 +278,20 @@ async def _resolve_from_specs(
 
 
 # ---------------------------------------------------------------------------
+#  Async generator dependencies (e.g. SQLAlchemy session scope)
+# ---------------------------------------------------------------------------
+
+
+async def _close_dependency_asyncgens(request: Request) -> None:
+    gens = request.state.pop("_dep_asyncgens", None)
+    if not gens:
+        return
+    for agen in reversed(gens):
+        with contextlib.suppress(Exception):
+            await agen.aclose()
+
+
+# ---------------------------------------------------------------------------
 #  Dependency resolution
 # ---------------------------------------------------------------------------
 
@@ -310,6 +327,15 @@ async def _resolve_dependency(
         result = await func(**dep_kwargs)
     else:
         result = func(**dep_kwargs)
+
+    if inspect.isasyncgen(result):
+        agen = result
+        request.state.setdefault("_dep_asyncgens", []).append(agen)
+        try:
+            value = await agen.__anext__()
+        except StopAsyncIteration as exc:
+            raise RuntimeError("async generator dependency produced no value") from exc
+        return value
 
     if dep.use_cache:
         cache[func] = result
