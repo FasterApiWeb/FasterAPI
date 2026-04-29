@@ -1,9 +1,12 @@
+"""HTTP middleware (CORS, compression, trusted hosts, HTTPS redirect)."""
+
 from __future__ import annotations
 
 import gzip
 from collections.abc import Sequence
 from typing import Any
 
+from .asgi_compat import get_server_host
 from .types import ASGIApp
 
 
@@ -250,12 +253,9 @@ class TrustedHostMiddleware(BaseHTTPMiddleware):
             await self.app(scope, receive, send)
             return
 
-        headers_raw: list[tuple[bytes, bytes]] = scope.get("headers", [])
-        host = ""
-        for k, v in headers_raw:
-            if k.decode("latin-1").lower() == "host":
-                host = v.decode("latin-1").split(":")[0]
-                break
+        host = get_server_host(scope) or ""
+        if host:
+            host = host.split(":")[0]
 
         if host not in self.allowed_hosts:
             await send(

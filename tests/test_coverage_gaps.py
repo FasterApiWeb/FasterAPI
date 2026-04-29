@@ -145,6 +145,109 @@ def test_staticfiles_head_method():
         assert resp.status_code == 200
 
 
+def test_staticfiles_head_empty_body_and_content_length():
+    with _make_static_dir() as td:
+        app = Faster()
+        app.mount("/static", StaticFiles(directory=td))
+
+        client = TestClient(app)
+        resp = client.head("/static/hello.txt")
+        assert resp.content == b""
+        assert int(resp.headers["content-length"]) == len(b"Hello, world!")
+
+
+def test_staticfiles_etag_and_last_modified_headers():
+    with _make_static_dir() as td:
+        app = Faster()
+        app.mount("/static", StaticFiles(directory=td))
+
+        client = TestClient(app)
+        resp = client.get("/static/hello.txt")
+        assert resp.status_code == 200
+        assert "etag" in resp.headers
+        assert "last-modified" in resp.headers
+        assert resp.headers["etag"].startswith('"') and resp.headers["etag"].endswith('"')
+
+
+def test_staticfiles_if_none_match_304():
+    with _make_static_dir() as td:
+        app = Faster()
+        app.mount("/static", StaticFiles(directory=td))
+
+        client = TestClient(app)
+        first = client.get("/static/hello.txt")
+        etag = first.headers["etag"]
+
+        resp = client.get("/static/hello.txt", headers={"If-None-Match": etag})
+        assert resp.status_code == 304
+        assert resp.content == b""
+
+
+def test_staticfiles_range_single_206():
+    with _make_static_dir() as td:
+        app = Faster()
+        app.mount("/static", StaticFiles(directory=td))
+
+        client = TestClient(app)
+        resp = client.get("/static/hello.txt", headers={"Range": "bytes=0-4"})
+        assert resp.status_code == 206
+        assert resp.content == b"Hello"
+        assert "content-range" in resp.headers
+        assert resp.headers["content-range"].startswith("bytes 0-4/")
+        assert int(resp.headers["content-length"]) == 5
+
+
+def test_staticfiles_range_unsatisfiable_416():
+    with _make_static_dir() as td:
+        app = Faster()
+        app.mount("/static", StaticFiles(directory=td))
+
+        client = TestClient(app)
+        resp = client.get("/static/hello.txt", headers={"Range": "bytes=9999-10000"})
+        assert resp.status_code == 416
+        assert "content-range" in resp.headers
+        assert resp.headers["content-range"].startswith("bytes */")
+
+
+def test_staticfiles_range_bad_unit_400():
+    with _make_static_dir() as td:
+        app = Faster()
+        app.mount("/static", StaticFiles(directory=td))
+
+        client = TestClient(app)
+        resp = client.get("/static/hello.txt", headers={"Range": "letters=0-1"})
+        assert resp.status_code == 400
+
+
+def test_staticfiles_if_range_mismatch_returns_full_entity():
+    with _make_static_dir() as td:
+        app = Faster()
+        app.mount("/static", StaticFiles(directory=td))
+
+        client = TestClient(app)
+        resp = client.get(
+            "/static/hello.txt",
+            headers={"Range": "bytes=0-4", "If-Range": "Wed, 01 Jan 1980 00:00:00 GMT"},
+        )
+        assert resp.status_code == 200
+        assert resp.content == b"Hello, world!"
+
+
+def test_staticfiles_multipart_two_ranges_206():
+    with _make_static_dir() as td:
+        app = Faster()
+        app.mount("/static", StaticFiles(directory=td))
+
+        client = TestClient(app)
+        # "Hello, world!" — non-overlapping ranges merge to two parts for multipart.
+        resp = client.get("/static/hello.txt", headers={"Range": "bytes=0-4,7-11"})
+        assert resp.status_code == 206
+        assert "multipart/byteranges" in resp.headers["content-type"]
+        body = resp.content
+        assert body.startswith(b"--")
+        assert b"Hello" in body and b"world" in body
+
+
 # ---------------------------------------------------------------------------
 #  Jinja2Templates
 # ---------------------------------------------------------------------------

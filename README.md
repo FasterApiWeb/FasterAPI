@@ -132,9 +132,11 @@ pip install -e ".[dev]"
 **FasterAPI stands on the shoulders of these libraries** (see also [FastAPI’s “Requirements” idea](https://github.com/fastapi/fastapi#requirements)):
 
 - **[msgspec](https://jcristharif.com/msgspec/)** — structs, validation, and JSON encoding.
+- **[anyio](https://anyio.readthedocs.io/)** — async file I/O and structured concurrency (used by ``StaticFiles`` and ASGI-friendly APIs).
 - **[uvicorn](https://www.uvicorn.org/)** `[standard]` — ASGI server (pulled in by this package).
 - **[python-multipart](https://github.com/Kludex/python-multipart)** — forms and uploads.
 - Optional: **[uvloop](https://github.com/MagicStack/uvloop)** via `faster-api-web[all]` for lower event-loop overhead on Linux.
+- Optional: **`faster-api-web[production]`** — [structlog](https://www.structlog.org/) for structured logs; **`faster-api-web[http2]`** — [Hypercorn](https://hypercorn.readthedocs.io/) and [Daphne](https://github.com/django/daphne) for HTTP/2-capable ASGI servers (the framework stays ASGI 3–compatible; servers negotiate HTTP/2 on TLS).
 
 **Python:**
 
@@ -502,6 +504,8 @@ _This block is updated automatically on pushes to `dev`, `stage`, and `master`._
 
 <!-- AUTO_BENCHMARKS_END -->
 
+The HTTP snapshot above stresses **uvicorn + localhost TCP + client**; absolute req/s can flip either way. The **direct ASGI** section below isolates framework routing and serialisation without that stack.
+
 ### Framework-Level Benchmark (Direct ASGI)
 
 This is the most meaningful benchmark — it calls each framework's ASGI
@@ -516,6 +520,8 @@ serialization, and response construction.
 | `GET /health` | **335,612 req/s** | 49,005 req/s | **6.85x** |
 | `GET /users/{id}` | **282,835 req/s** | 32,391 req/s | **8.73x** |
 | `POST /users` (JSON body) | **193,225 req/s** | 27,031 req/s | **7.15x** |
+
+The large req/s values above compare **FasterAPI vs FastAPI only**, by invoking each app’s ASGI callable in-process (no TCP/HTTP server). They are **not** comparable to the optional **Go Fiber** HTTP benchmark in CI, which runs separate processes through real HTTP servers — compare Fiber to Python using the HTTP-tier benchmark or documented ratios on the same machine.
 
 ### Component-Level Benchmarks
 
@@ -837,12 +843,12 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
 ## Roadmap
 
 ### v0.2.0 — Production Hardening
-- [ ] Streaming request body support (large file uploads without full buffering)
-- [ ] HTTP/2 support via hypercorn/daphne compatibility
-- [ ] Connection pooling for database middleware
-- [ ] Rate limiting middleware
-- [ ] Request ID / correlation ID middleware
-- [ ] Structured logging integration (structlog)
+- [x] Streaming request body support (large file uploads without full buffering)
+- [x] HTTP/2 support via hypercorn/daphne compatibility
+- [x] Connection pooling for database middleware
+- [x] Rate limiting middleware
+- [x] Request ID / correlation ID middleware
+- [x] Structured logging integration (structlog)
 
 ### v0.3.0 — Ecosystem
 - [ ] SQLAlchemy async session dependency

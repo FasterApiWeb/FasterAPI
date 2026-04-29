@@ -14,11 +14,13 @@ __version__ = get_version()
 __author__ = "Eshwar Chandra Vidhyasagar Thedla"
 
 from .app import Faster
+from .asgi_compat import get_header, get_server_host, http_version, is_http2
 from .background import BackgroundTask, BackgroundTasks
 from .concurrency import SubInterpreterPool, run_in_subinterpreter
 from .datastructures import FormData, UploadFile
 from .dependencies import Depends
 from .exceptions import HTTPException, RequestValidationError
+from .log_config import configure_structlog
 from .middleware import (
     BaseHTTPMiddleware,
     CORSMiddleware,
@@ -27,6 +29,7 @@ from .middleware import (
     TrustedHostMiddleware,
 )
 from .params import Body, Cookie, File, Form, Header, Path, Query
+from .production import DatabasePoolMiddleware, RateLimitMiddleware, RequestIDMiddleware
 from .request import Request
 from .response import (
     EventSourceResponse,
@@ -95,6 +98,15 @@ __all__ = [
     "GZipMiddleware",
     "HTTPSRedirectMiddleware",
     "TrustedHostMiddleware",
+    # Production (v0.2)
+    "DatabasePoolMiddleware",
+    "RateLimitMiddleware",
+    "RequestIDMiddleware",
+    "configure_structlog",
+    "http_version",
+    "is_http2",
+    "get_server_host",
+    "get_header",
     # Background
     "BackgroundTask",
     "BackgroundTasks",

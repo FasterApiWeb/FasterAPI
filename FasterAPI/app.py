@@ -68,6 +68,9 @@ class Faster:
         "_middleware_app",
         "_ws_routes",
         "_mounts",
+        "max_body_size",
+        "stream_request_body",
+        "stream_multipart",
     )
 
     def __init__(
@@ -84,6 +87,9 @@ class Faster:
         contact: dict[str, str] | None = None,
         license_info: dict[str, str] | None = None,
         lifespan: Callable[[Faster], Any] | None = None,
+        max_body_size: int | None = None,
+        stream_request_body: bool = False,
+        stream_multipart: bool = False,
     ) -> None:
         self.title = title
         self.version = version if version is not None else get_version()
@@ -106,6 +112,9 @@ class Faster:
         self._middleware_app: ASGIApp | None = None
         self._ws_routes: dict[str, ASGIApp] = {}
         self._mounts: list[tuple[str, ASGIApp]] = []
+        self.max_body_size = max_body_size
+        self.stream_request_body = stream_request_body
+        self.stream_multipart = stream_multipart
         self._setup_openapi_routes()
 
     def __repr__(self) -> str:
@@ -247,6 +256,10 @@ class Faster:
 
         handler, path_params, metadata = result
         scope["path_params"] = path_params
+        st = scope.setdefault("state", {})
+        st["max_body_size"] = self.max_body_size
+        st["stream_body_no_buffer"] = self.stream_request_body
+        st["stream_multipart"] = self.stream_multipart
         request = Request(scope, receive)
         bg_tasks = None
 
