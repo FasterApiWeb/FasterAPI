@@ -106,6 +106,7 @@ nav:
       - msgspec vs Pydantic: concepts/msgspec-vs-pydantic.md
       - Radix Tree Routing: concepts/radix-tree-routing.md
       - Sub-Interpreters Guide: concepts/sub-interpreters.md
+      - Performance roadmap (v0.4): concepts/performance-roadmap-v04.md
   - How-To Recipes: how-to/index.md
   - Reference:
       - API Reference: api-reference.md

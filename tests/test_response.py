@@ -56,6 +56,13 @@ async def test_json_response():
 
 
 @pytest.mark.asyncio
+async def test_json_response_preserialized_bytes_skips_encode():
+    payload = b'{"cached":true,"n":3}'
+    r = JSONResponse(payload)
+    assert r.body == payload
+
+
+@pytest.mark.asyncio
 async def test_html_plain_redirect():
     for cls, body in [(HTMLResponse, "<p>x</p>"), (PlainTextResponse, "ok")]:
         sent: list[dict] = []

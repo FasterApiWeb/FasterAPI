@@ -860,9 +860,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for full details.
 
 ### v0.4.0 — Performance
 - [ ] Cython-compiled hot paths (router, DI resolver)
-- [ ] HTTP/3 (QUIC) support
-- [ ] Connection-level keep-alive optimisation
-- [ ] Pre-serialised response caching
+- [ ] HTTP/3 (QUIC) support — ASGI deployment guidance ([performance roadmap — HTTP/3](https://fasterapiweb.github.io/FasterAPI/concepts/performance-roadmap-v04/#http3-quic-support))
+- [ ] Connection-level keep-alive optimisation — server/proxy tuning ([notes](https://fasterapiweb.github.io/FasterAPI/concepts/performance-roadmap-v04/#connection-level-keep-alive-optimisation))
+- [ ] Pre-serialised response caching — `JSONResponse(bytes)` skips encode ([custom responses](https://fasterapiweb.github.io/FasterAPI/advanced/custom-response/#pre-serialised-json-bytes)); distributed/process caches optional
 
 ### v1.0.0 — Stable Release
 - [ ] Full test coverage (>95%)

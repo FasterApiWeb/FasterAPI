@@ -89,11 +89,19 @@ class Response:
 
 
 class JSONResponse(Response):
-    """Response that serializes content as JSON using msgspec (with datetime/UUID/Decimal support)."""
+    """Response that serializes content as JSON using msgspec (with datetime/UUID/Decimal support).
+
+    Pass ``bytes``, ``bytearray``, or ``memoryview`` to skip encoding and send **pre-serialised**
+    JSON (hot-path optimisation when the payload is fixed at import time or cached externally).
+    """
 
     media_type = "application/json"
 
     def _render(self, content: Any) -> bytes:
+        if isinstance(content, memoryview):
+            return bytes(content)
+        if isinstance(content, (bytes, bytearray)):
+            return bytes(content)
         return encode_json(content)
 
 

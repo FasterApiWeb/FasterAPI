@@ -35,6 +35,23 @@ async def get_items():
     )
 ```
 
+### Pre-serialised JSON (`bytes`)
+
+If the JSON body is **fixed** (same bytes every time), pass UTF-8-encoded JSON as `bytes`
+(or `bytearray` / `memoryview`) so the handler skips `msgspec` encoding on each request:
+
+```python
+_HEALTH_JSON = b'{"status":"ok"}'
+
+
+@app.get("/health")
+async def health():
+    return JSONResponse(_HEALTH_JSON)
+```
+
+For shared caches across workers or TTL eviction, combine application-level caching or
+`RedisCacheMiddleware` with encoded payloads where appropriate.
+
 ## HTMLResponse
 
 ```python
