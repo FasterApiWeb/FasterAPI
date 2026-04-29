@@ -493,13 +493,13 @@ uvicorn examples.full_crud_app:app --reload
 
 | Endpoint | FasterAPI | FastAPI | Speedup |
 |---|---|---|---|
-| `GET /health` | **583 req/s** | 607 req/s | **0.96x** |
-| `GET /users/{id}` | **608 req/s** | 660 req/s | **0.92x** |
-| `POST /users` | **567 req/s** | 571 req/s | **0.99x** |
+| `GET /health` | **589 req/s** | 593 req/s | **0.99x** |
+| `GET /users/{id}` | **625 req/s** | 662 req/s | **0.94x** |
+| `POST /users` | **556 req/s** | 591 req/s | **0.94x** |
 
 | Routing | Radix ops/s | Regex ops/s | Speedup |
 |---|---|---|---|
-| 100-route lookup | **1,005,264** | 111,895 | **9.0x** |
+| 100-route lookup | **999,485** | 108,821 | **9.2x** |
 
 _This block is updated automatically on pushes to `dev`, `stage`, and `master`._
 
